@@ -1,314 +1,183 @@
-You are helping me start a new project called Terrarium.
-
-Before writing code, read this entire document and produce:
-
-1. A technical architecture proposal
-2. A suggested repository structure
-3. A development plan broken into milestones
-4. Any challenges, risks, or design concerns you see
-5. Questions that must be answered before implementation
-
-Do NOT start implementing until you have completed the above.
-
-# PROJECT: TERRARIUM
+# Project Brief: Terrarium
 
 ## Vision
 
 Terrarium is an ecosystem evolution simulator.
 
-Players create the starting conditions of a world, run time forward, perform limited scientific interventions, and discover how life evolves.
+Players establish the starting conditions of a world, advance time, perform limited scientific interventions, and discover how life evolves.
 
-The goal is not to create a god game.
-
-The goal is not to create a chatbot.
-
-The goal is to create a believable living world that produces surprising ecological and evolutionary outcomes.
+The goal is not to create a god game or a chatbot. The goal is to create a believable living world that produces surprising ecological and evolutionary outcomes.
 
 Success looks like:
 
-"Wait... I never expected that species to evolve."
+> “Wait... I never expected that species to evolve.”
 
 ## Core Fantasy
 
-Create a world.
+Create a world. Run time forward. Discover what happened.
 
-Run time forward.
+Possible outcomes include:
 
-Discover what happened.
+- Species adapt, specialize, and speciate.
+- Species go extinct.
+- Populations migrate.
+- Ecosystems collapse or recover.
+- New ecological niches and evolutionary branches emerge.
 
-Examples:
-
-* Species evolve.
-* Species go extinct.
-* Populations migrate.
-* Ecosystems collapse.
-* New ecological niches emerge.
-* Entire evolutionary branches appear.
-
-The player should feel like a scientist studying a living world.
+The player should feel like a naturalist studying a living world.
 
 ## Player Role
 
-The player is a naturalist and scientist.
-
 The player:
 
-* creates initial conditions
-* observes the ecosystem
-* performs limited interventions
-* runs experiments
+- Establishes initial conditions through a lightweight Genesis system
+- Observes the ecosystem
+- Advances time in discrete steps
+- Performs limited, rule-bound interventions
+- Runs repeatable experiments
 
-The player is NOT:
+The player is not a ruler, king, or god. The ecosystem follows rules that even the player must respect.
 
-* a ruler
-* a king
-* a god
+## Current MVP Decision
 
-The ecosystem should have rules that even the player must respect.
+The first implementation is a replayable vertical slice designed to test whether a small ecosystem can be both surprising and explainable.
 
-## Genesis System
+A run contains:
 
-Each world starts with:
+- One selected world archetype
+- One selected environmental pressure
+- One visible deterministic seed
+- Exactly three template-generated regions
+- Exactly five archetype-generated starting species
+- Discrete era advancement
+- One optional population-relocation intervention
+- Adaptation, migration, rare speciation, and extinction
+- Structured causal reports and a small lineage view
 
-Genesis Points: 100
+See [MVP Scope](docs/MVP_SCOPE.md) for acceptance criteria and explicit exclusions.
 
-Players spend points on world characteristics.
+## Lightweight Genesis System
 
-Example categories:
+Before generation, the player selects:
 
-### Geography
+1. A **world archetype**, which defines the shape and ecological constraints of the world.
+2. An **environmental pressure**, which defines the persistent challenge life must respond to.
+3. A **seed**, which makes generation and simulation reproducible.
 
-* Mountain Range
-* Volcanic Region
-* Large Cave Network
-* Great River Basin
-* Ancient Forest
-* Archipelago
+The MVP does not include Genesis Points, modifier stacking, or direct species creation. The player's choices establish conditions rather than prescribe outcomes.
 
-### Climate
+## Template-Based World Generation
 
-* Stable Climate
-* Monsoon Climate
-* Extreme Seasons
-* Ice Age Conditions
+After Genesis, Terrarium generates a world from constrained, versioned templates.
 
-### Ecosystem
+The selected world archetype defines:
 
-* High Biodiversity
-* Balanced Ecosystem
-* Sparse Ecosystem
-* Few Dominant Species
+- Three region roles and their connection topology
+- Environmental ranges
+- Resource distribution rules
+- Compatible species-archetype weights
+- Naming vocabulary
 
-### Evolution
+The seed selects variation inside those constraints. Worlds from the same archetype should be recognizably related but capable of producing different ecological histories.
 
-* Rapid Adaptation
-* Strong Specialization
-* High Mutation Rate
-* Slow Stable Evolution
+The generated world must be validated as viable before the simulation begins.
 
-The player does NOT create species.
+## Archetype-Based Species Generation
 
-The player does NOT name species.
+The player does not create or name species. Starting species should feel discovered.
 
-Species should feel discovered.
+The MVP generates exactly five starting species:
 
-## World Generation
+- Two producers
+- Two herbivores
+- One predator
 
-After Genesis is complete, Terrarium generates:
+Species archetypes constrain trophic role, trait ranges, habitat requirements, diet rules, and naming tags. The generator assembles species as a coherent ecosystem so every consumer has food and every species has a viable starting habitat.
 
-* world name
-* regions
-* climate systems
-* initial species
-* ecological relationships
-
-The generated world should be unique and replayable.
-
-## Species
-
-Species are generated by the simulation.
-
-Examples:
-
-* Moss Grazer
-* River Hopper
-* Stone Beetle
-* Ember Stalker
-* Glass Moth
-
-Species names should be generated from:
-
-* environment
-* appearance
-* behavior
-* evolutionary history
-
-Naming should feel like naturalists naming discovered species.
+Names are generated from observable properties such as environment, appearance, behavior, and ecological role. Names are descriptive metadata and never affect simulation rules.
 
 ## Evolution
 
-Evolution is a primary mechanic.
+Evolution is a primary mechanic. The MVP supports:
 
-Species should be capable of:
+- Bounded species-level adaptation
+- Migration between connected regions
+- Rare isolation-driven speciation
+- Extinction
 
-* adaptation
-* specialization
-* migration
-* speciation
-* extinction
+The initial evolvable trait set is:
 
-Example lineage:
+- Body size
+- Mobility
+- Cold tolerance
+- Drought tolerance
 
-Moss Grazer
-├── Ash Grazer
-└── Glowhorn Deer
-├── Crystal Antler
-└── Cave Runner
-
-The lineage tree should be a first-class concept.
+Every trait must provide both a benefit and an ecological cost. The lineage tree is a first-class concept, but it remains deliberately small in the MVP.
 
 ## Simulation Philosophy
 
-The simulation engine is authoritative.
+The simulation engine is authoritative. It owns populations, resources, geography, environmental conditions, species, lineage, and history.
 
-It owns:
+Nothing modifies a running world directly. Every change passes through an accepted domain command and the simulation engine.
 
-* populations
-* resources
-* geography
-* environmental conditions
-* species
-* history
-
-Nothing modifies state directly.
-
-Everything passes through the simulation engine.
-
-## AI Naturalist
-
-AI should NOT control the world.
-
-AI should act as a naturalist.
-
-AI receives ecosystem summaries.
-
-AI proposes:
-
-* migration
-* adaptation
-* speciation
-* ecological developments
-
-The simulation engine validates proposals.
-
-The engine decides what is actually possible.
-
-AI proposes.
-
-Engine validates.
-
-Engine applies.
+For an identical ruleset version, Genesis configuration, and command history, Terrarium must produce the same world state and event history.
 
 ## Scientific Intervention
 
-Players can influence the ecosystem.
+Players can influence but not directly control the ecosystem.
 
-Examples:
+The only MVP intervention is relocating part of one extant species population to another connected, legally reachable region. The engine validates the command and resolves all consequences through normal simulation rules.
 
-* Introduce species
-* Relocate species
-* Conservation programs
-* Breeding programs
-* Supplemental feeding
-* Trigger natural events that already exist
+The player may not directly create species, edit traits, change populations, or modify geography and climate values.
 
-Example:
-
-If a dormant volcano exists, the player may eventually trigger an eruption.
-
-The player may NOT create a volcano.
-
-The player may NOT create mountains.
-
-The player may NOT arbitrarily modify geography.
+Additional scientific interventions are post-MVP candidates.
 
 ## Time Progression
 
-The world does not run continuously.
+The world does not run continuously. Players advance one discrete era at a time.
 
-Players advance time.
+An era applies the environmental pressure and then resolves resources, ecological interactions, population change, migration, adaptation, speciation, and extinction in a fixed order.
 
-Examples:
-
-* Run 10 Days
-* Run 100 Days
-* Run 1 Year
-* Run 10 Years
-* Run 100 Years
-
-After each run the player receives reports describing major developments.
+The exact fictional duration of an era remains an open presentation decision.
 
 ## Explainability
 
 Every major event should answer:
 
-* What happened?
-* Why did it happen?
-* What changed because of it?
+- What happened?
+- Why did it happen?
+- What changed because of it?
 
-Players should always be able to trace causal chains.
+Major events record structured causes at the moment the engine applies them. Player-facing reports are deterministic projections of those events, and players should be able to trace causal chains through the world's history.
 
-Example:
+## AI Position
 
-Food shortage
-→ Migration
-→ Predator relocation
-→ Population collapse
-→ Isolation
-→ Speciation
+AI is excluded from the MVP.
 
-## Technical Preferences
+The deterministic engine, template generator, naming system, and report system must all work without AI. A future AI naturalist may improve narration or propose developments, but it must never control the world or become the source of truth. Any future proposal must be validated and applied by the simulation engine.
 
-Preferred stack:
+## Technical Direction
 
-* Next.js
-* TypeScript
-* React
-* Tailwind
-* SQLite initially
-* Drizzle ORM
+Preferred product stack:
 
-The project should be designed so that:
+- Next.js
+- TypeScript
+- React
+- Tailwind
+- SQLite
+- Drizzle ORM
 
-* simulation logic is independent from UI
-* AI providers are pluggable
-* deterministic simulation can run without AI
-* testing is easy
+Architecture requirements:
 
-## Important Design Question
+- The domain core is independent from UI, persistence, network, and AI providers.
+- Generation is separate from simulation.
+- The simulation is deterministic and testable without AI.
+- Templates and rulesets are versioned.
+- Structured events support explainability and replay diagnostics.
+- Persistence is introduced after the in-memory domain loop is proven.
 
-One of the biggest unresolved questions is:
+See [Architecture](docs/ARCHITECTURE.md), [Domain Model](docs/DOMAIN_MODEL.md), and [Implementation Plan](docs/IMPLEMENTATION_PLAN.md) for implementation-preparation detail.
 
-How much should AI influence the simulation?
+## Scope Principle
 
-Current thinking:
-
-* deterministic simulation first
-* AI enhances and proposes
-* AI should not become the source of truth
-
-I would like recommendations here.
-
-## Deliverables
-
-Before writing code:
-
-1. Challenge assumptions.
-2. Identify risks.
-3. Suggest architecture.
-4. Suggest repository structure.
-5. Suggest data model.
-6. Suggest first implementation milestone.
-7. Explain where AI belongs and where it does not.
-
-Only after completing that analysis should implementation begin.
+Generated differences must change a decision, causal report, or evolutionary outcome. Otherwise, they do not belong in the MVP.
