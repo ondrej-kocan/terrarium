@@ -9,12 +9,6 @@ import type { RelocatePopulationCommand } from '@/domain/commands/types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function suitabilityLabel(pct: number): string {
-  if (pct >= 90) return `${pct}%`;
-  if (pct >= 70) return `${pct}%`;
-  return `${pct}%`;
-}
-
 function suitabilityColor(pct: number): string {
   if (pct >= 80) return '#090';
   if (pct >= 60) return '#850';
@@ -44,71 +38,119 @@ function traitDelta(current: number, origin: number): string {
   return `${current} (${sign}${current - origin})`;
 }
 
-function describeEvent(event: DomainEvent, world: World): string {
+// ── Event descriptions ────────────────────────────────────────────────────────
+
+const EVENT_PRIORITY: Record<string, number> = {
+  species_extinct: 0,
+  species_speciated: 1,
+  population_relocated: 2,
+  species_adapted: 3,
+  population_migrated: 4,
+  environment_changed: 5,
+};
+
+function topEvents(events: DomainEvent[], limit = 3): DomainEvent[] {
+  return [...events]
+    .sort((a, b) => (EVENT_PRIORITY[a.type] ?? 99) - (EVENT_PRIORITY[b.type] ?? 99))
+    .slice(0, limit);
+}
+
+type EventDescription = { summary: string; cause?: string };
+
+function describeEvent(event: DomainEvent, world: World): EventDescription {
   const getSpeciesName = (sid: string) =>
     world.species.find(s => (s.id as string) === sid)?.name ?? sid;
   const getRegionName = (rid: string) =>
     world.regions.find(r => (r.id as string) === rid)?.name ?? rid;
 
+  const cause = event.causes[0]?.description;
+
   switch (event.type) {
     case 'environment_changed': {
-      const regionId = event.subjectIds.regionIds[0];
-      const regionName = regionId ? getRegionName(regionId as string) : 'Unknown';
-      const pressureId = world.genesisConfig.environmentalPressureId;
-      return `Region ${regionName}: conditions changed (${pressureId})`;
+      const rid = event.subjectIds.regionIds[0];
+      const regionName = rid ? getRegionName(rid as string) : 'Unknown';
+      const pressureName = PRESSURE_ARCHETYPES.get(world.genesisConfig.environmentalPressureId)?.name
+        ?? world.genesisConfig.environmentalPressureId;
+      return { summary: `${regionName}: conditions shifted`, cause: pressureName };
     }
     case 'population_migrated': {
-      const speciesName = event.subjectIds.speciesIds[0]
-        ? getSpeciesName(event.subjectIds.speciesIds[0] as string)
-        : 'Unknown';
+      const sid = event.subjectIds.speciesIds[0];
       const fromId = event.subjectIds.regionIds[0];
       const toId = event.subjectIds.regionIds[1];
+      const speciesName = sid ? getSpeciesName(sid as string) : 'Unknown';
       const from = fromId ? getRegionName(fromId as string) : '?';
       const to = toId ? getRegionName(toId as string) : '?';
-      return `${speciesName} migrated from ${from} to ${to}`;
+      const toPopKey = `population:${toId as string}`;
+      const toChange = event.changes[toPopKey];
+      const amount = toChange ? (toChange.after as number) - (toChange.before as number) : undefined;
+      const amountStr = amount !== undefined ? ` (${amount} individuals)` : '';
+      return { summary: `${speciesName} migrated ${from} → ${to}${amountStr}`, cause };
     }
     case 'species_adapted': {
-      const speciesName = event.subjectIds.speciesIds[0]
-        ? getSpeciesName(event.subjectIds.speciesIds[0] as string)
-        : 'Unknown';
-      return `${speciesName} adapted traits`;
+      const sid = event.subjectIds.speciesIds[0];
+      const speciesName = sid ? getSpeciesName(sid as string) : 'Unknown';
+      const traitsChange = event.changes['traits'];
+      let traitDetail = '';
+      if (traitsChange) {
+        const before = traitsChange.before as Record<string, number>;
+        const after = traitsChange.after as Record<string, number>;
+        const traitLabels: Record<string, string> = {
+          coldTolerance: 'cold tolerance',
+          droughtTolerance: 'drought tolerance',
+          mobility: 'mobility',
+          bodySize: 'body size',
+        };
+        for (const key of ['coldTolerance', 'droughtTolerance', 'mobility', 'bodySize']) {
+          if (before[key] !== after[key]) {
+            const delta = (after[key] ?? 0) - (before[key] ?? 0);
+            traitDetail = ` — ${traitLabels[key]} ${delta > 0 ? '▲' : '▼'} ${before[key]}→${after[key]}`;
+            break;
+          }
+        }
+      }
+      return { summary: `${speciesName} adapted${traitDetail}`, cause };
     }
     case 'species_speciated': {
       const parentId = event.subjectIds.speciesIds[0];
       const childId = event.subjectIds.speciesIds[1];
+      const rid = event.subjectIds.regionIds[0];
       const parentName = parentId ? getSpeciesName(parentId as string) : 'Unknown';
       const childName = childId ? getSpeciesName(childId as string) : 'Unknown';
-      return `${childName} speciated from ${parentName}`;
+      const regionName = rid ? getRegionName(rid as string) : undefined;
+      return {
+        summary: `${childName} speciated from ${parentName}${regionName ? ` in ${regionName}` : ''}`,
+        cause,
+      };
     }
     case 'species_extinct': {
-      const speciesName = event.subjectIds.speciesIds[0]
-        ? getSpeciesName(event.subjectIds.speciesIds[0] as string)
-        : 'Unknown';
-      return `${speciesName} went extinct`;
+      const sid = event.subjectIds.speciesIds[0];
+      const speciesName = sid ? getSpeciesName(sid as string) : 'Unknown';
+      return { summary: `${speciesName} went extinct`, cause };
     }
     case 'population_relocated': {
-      const speciesName = event.subjectIds.speciesIds[0]
-        ? getSpeciesName(event.subjectIds.speciesIds[0] as string)
-        : 'Unknown';
+      const sid = event.subjectIds.speciesIds[0];
       const fromId = event.subjectIds.regionIds[0];
       const toId = event.subjectIds.regionIds[1];
+      const speciesName = sid ? getSpeciesName(sid as string) : 'Unknown';
       const from = fromId ? getRegionName(fromId as string) : '?';
       const to = toId ? getRegionName(toId as string) : '?';
-      const cause = event.causes[0];
-      // Extract amount from cause description if possible, otherwise use changes
       const fromKey = `population:${fromId as string}`;
       const fromChange = event.changes[fromKey];
-      const amount = fromChange
-        ? (fromChange.before as number) - (fromChange.after as number)
-        : 0;
-      return `Player relocated ${amount} ${speciesName} from ${from} to ${to}`;
+      const amount = fromChange ? (fromChange.before as number) - (fromChange.after as number) : 0;
+      return { summary: `You relocated ${amount} ${speciesName} from ${from} to ${to}`, cause: 'Player intervention' };
     }
     default:
-      return `Event: ${event.type}`;
+      return { summary: `Event: ${event.type}` };
   }
 }
 
 // ── Era navigation controls ───────────────────────────────────────────────────
+
+type RelocationNav = { speciesId: string; fromRegionId: string; toRegionId: string; amount: number; era: number };
+
+function buildRelParam(relocation: RelocationNav): string {
+  return `&rel-species=${encodeURIComponent(relocation.speciesId)}&rel-from=${encodeURIComponent(relocation.fromRegionId)}&rel-to=${encodeURIComponent(relocation.toRegionId)}&rel-amount=${relocation.amount}&rel-era=${relocation.era}`;
+}
 
 function EraControls({
   seed,
@@ -121,12 +163,10 @@ function EraControls({
   archetypeId: string;
   pressureId: string;
   era: number;
-  relocation?: { speciesId: string; fromRegionId: string; toRegionId: string; amount: number; era: number };
+  relocation?: RelocationNav;
 }) {
   const base = `?seed=${encodeURIComponent(seed)}&archetype=${archetypeId}&pressure=${pressureId}`;
-  const rel = relocation
-    ? `&rel-species=${encodeURIComponent(relocation.speciesId)}&rel-from=${encodeURIComponent(relocation.fromRegionId)}&rel-to=${encodeURIComponent(relocation.toRegionId)}&rel-amount=${relocation.amount}&rel-era=${relocation.era}`
-    : '';
+  const rel = relocation ? buildRelParam(relocation) : '';
   const prevUrl = era > 0 ? `${base}&eras=${era - 1}${rel}` : null;
   const nextUrl = `${base}&eras=${era + 1}${rel}`;
 
@@ -139,9 +179,7 @@ function EraControls({
       ) : (
         <span style={{ padding: '4px 12px', border: '1px solid #eee', color: '#aaa' }}>◀</span>
       )}
-
       <strong style={{ minWidth: '5rem', textAlign: 'center' }}>Era {era}</strong>
-
       <a href={nextUrl} style={{ padding: '4px 12px', border: '1px solid #ccc', textDecoration: 'none', color: '#333' }}>
         Era {era + 1} ▶
       </a>
@@ -171,6 +209,7 @@ function GenesisForm({ current }: { current: Partial<GenesisConfig> }) {
                 placeholder="any text"
                 style={{ width: '16rem', fontFamily: 'monospace' }}
               />
+              <span style={{ fontSize: '0.8em', color: '#888', marginLeft: '0.5rem' }}>determines variation within the chosen archetype</span>
             </td>
           </tr>
           <tr>
@@ -182,6 +221,11 @@ function GenesisForm({ current }: { current: Partial<GenesisConfig> }) {
                   <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
               </select>
+              {current.worldArchetypeId && (
+                <span style={{ fontSize: '0.8em', color: '#666', marginLeft: '0.5rem' }}>
+                  {WORLD_ARCHETYPES.get(current.worldArchetypeId)?.description}
+                </span>
+              )}
             </td>
           </tr>
           <tr>
@@ -193,6 +237,11 @@ function GenesisForm({ current }: { current: Partial<GenesisConfig> }) {
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
+              {current.environmentalPressureId && (
+                <span style={{ fontSize: '0.8em', color: '#666', marginLeft: '0.5rem' }}>
+                  {PRESSURE_ARCHETYPES.get(current.environmentalPressureId)?.description}
+                </span>
+              )}
             </td>
           </tr>
           <tr>
@@ -208,12 +257,12 @@ function GenesisForm({ current }: { current: Partial<GenesisConfig> }) {
 function RegionsTable({ world }: { world: World }) {
   return (
     <section>
-      <h2>Regions</h2>
+      <h3 style={{ fontSize: '1em', marginTop: '1.5rem' }}>Regions</h3>
       <table style={{ borderCollapse: 'collapse', width: '100%' }}>
         <thead>
           <tr>
             {['Region', 'Temp', 'Moisture', 'Fertility', 'Shelter', 'Capacity', 'Neighbors'].map(h => (
-              <th key={h} style={{ textAlign: 'left', padding: '4px 12px', borderBottom: '1px solid #ccc' }}>{h}</th>
+              <th key={h} style={{ textAlign: 'left', padding: '4px 12px', borderBottom: '1px solid #ccc', fontSize: '0.85em' }}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -230,7 +279,7 @@ function RegionsTable({ world }: { world: World }) {
                 {world.regions
                   .filter(nr => r.neighborIds.includes(nr.id))
                   .map(nr => nr.name)
-                  .join(', ')}
+                  .join(' ↔ ')}
               </td>
             </tr>
           ))}
@@ -249,7 +298,7 @@ function SpeciesTable({ world }: { world: World }) {
 
   return (
     <section>
-      <h2>Species</h2>
+      <h3 style={{ fontSize: '1em', marginTop: '1.5rem' }}>Species</h3>
       <table style={{ borderCollapse: 'collapse', width: '100%' }}>
         <thead>
           <tr>
@@ -260,7 +309,7 @@ function SpeciesTable({ world }: { world: World }) {
               ...world.regions.map(r => `${r.name} suit.`),
               ...world.regions.map(r => r.name),
             ].map(h => (
-              <th key={h} style={{ textAlign: 'left', padding: '4px 8px', borderBottom: '1px solid #ccc', fontSize: '0.85em' }}>{h}</th>
+              <th key={h} style={{ textAlign: 'left', padding: '4px 8px', borderBottom: '1px solid #ccc', fontSize: '0.8em', color: '#555' }}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -272,7 +321,7 @@ function SpeciesTable({ world }: { world: World }) {
             const pop = totalPop(sp);
 
             const rowStyle = {
-              opacity: extinct ? 0.45 : 1,
+              opacity: extinct ? 0.4 : 1,
               background: isChild ? '#f0fff0' : undefined,
             };
 
@@ -285,11 +334,11 @@ function SpeciesTable({ world }: { world: World }) {
               <tr key={sp.id as string} style={rowStyle}>
                 <td style={{ padding: '4px 8px' }}>
                   <strong>{sp.name}</strong>
-                  {isChild && <span style={{ fontSize: '0.75em', color: '#090', marginLeft: '4px' }}>✦new</span>}
+                  {isChild && <span style={{ fontSize: '0.7em', color: '#090', marginLeft: '4px' }}>✦new</span>}
                 </td>
-                <td style={{ padding: '4px 8px' }}>{sp.trophicRole}</td>
-                <td style={{ padding: '4px 8px', color: extinct ? '#c00' : '#090' }}>
-                  {extinct ? `✗ extinct era ${sp.extinctionEra}` : '✓'}
+                <td style={{ padding: '4px 8px', fontSize: '0.85em', color: '#555' }}>{sp.trophicRole}</td>
+                <td style={{ padding: '4px 8px', color: extinct ? '#c00' : '#090', fontSize: '0.85em' }}>
+                  {extinct ? `✗ era ${sp.extinctionEra}` : '✓'}
                 </td>
                 <td style={{ padding: '4px 8px', textAlign: 'center', color: adapted && sp.traits.bodySize !== sp.originTraits.bodySize ? '#00c' : undefined }}>
                   {traitDelta(sp.traits.bodySize, sp.originTraits.bodySize)}
@@ -303,13 +352,13 @@ function SpeciesTable({ world }: { world: World }) {
                 <td style={{ padding: '4px 8px', textAlign: 'center', color: adapted && sp.traits.droughtTolerance !== sp.originTraits.droughtTolerance ? '#00c' : undefined }}>
                   {traitDelta(sp.traits.droughtTolerance, sp.originTraits.droughtTolerance)}
                 </td>
-                <td style={{ padding: '4px 8px', fontSize: '0.85em' }}>{diet || '—'}</td>
+                <td style={{ padding: '4px 8px', fontSize: '0.8em', color: '#555' }}>{diet || '—'}</td>
                 <td style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 'bold' }}>{pop}</td>
                 {world.regions.map(r => {
                   const s = suitsForRegion(sp, r);
                   return (
-                    <td key={`suit-${r.id}`} style={{ padding: '4px 8px', textAlign: 'center', fontSize: '0.85em', color: suitabilityColor(s) }}>
-                      {suitabilityLabel(s)}
+                    <td key={`suit-${r.id}`} style={{ padding: '4px 8px', textAlign: 'center', fontSize: '0.8em', color: suitabilityColor(s) }}>
+                      {s}%
                     </td>
                   );
                 })}
@@ -323,23 +372,98 @@ function SpeciesTable({ world }: { world: World }) {
           })}
         </tbody>
       </table>
-      <p style={{ fontSize: '0.8em', color: '#888', marginTop: '0.5rem' }}>
-        Blue trait value = adapted from origin · ✦new = speciated this run · faded row = extinct
+      <p style={{ fontSize: '0.75em', color: '#888', marginTop: '0.4rem' }}>
+        Blue = adapted from origin · ✦new = speciated this run · faded = extinct · Body/Mob/Cold/Drought traits (0–10)
       </p>
     </section>
   );
 }
 
+function LineageSection({ world }: { world: World }) {
+  const children = world.species.filter(s => s.parentSpeciesId !== null);
+  if (children.length === 0) return null;
+
+  return (
+    <section style={{ marginTop: '1.5rem' }}>
+      <h3 style={{ fontSize: '1em' }}>Species Lineage</h3>
+      <ul style={{ fontSize: '0.9em', paddingLeft: '1.5rem' }}>
+        {children.map(child => {
+          const parent = world.species.find(s => s.id === child.parentSpeciesId);
+          const status = child.status === 'extinct'
+            ? `, extinct era ${child.extinctionEra}`
+            : ', extant';
+          return (
+            <li key={child.id as string}>
+              <strong>{child.name}</strong> ← {parent?.name ?? '?'} · appeared era {child.originEra}{status}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 function EraEventLog({ events, world }: { events: DomainEvent[]; world: World }) {
+  const significant = topEvents(events);
+  const hiddenCount = events.length - significant.length;
+
   if (events.length === 0) {
     return <p style={{ color: '#888', fontSize: '0.9em' }}>No notable events this era.</p>;
   }
+
   return (
-    <ul style={{ fontSize: '0.9em', paddingLeft: '1.5rem' }}>
-      {events.map(e => (
-        <li key={e.id as string}>{describeEvent(e, world)}</li>
-      ))}
-    </ul>
+    <div style={{ fontSize: '0.9em' }}>
+      <ul style={{ paddingLeft: '1.5rem', margin: '0.25rem 0' }}>
+        {significant.map(e => {
+          const { summary, cause } = describeEvent(e, world);
+          return (
+            <li key={e.id as string} style={{ marginBottom: '0.35rem' }}>
+              {summary}
+              {cause && <span style={{ color: '#888', marginLeft: '0.4rem', fontSize: '0.9em' }}>({cause})</span>}
+            </li>
+          );
+        })}
+      </ul>
+      {hiddenCount > 0 && (
+        <p style={{ color: '#aaa', fontSize: '0.8em', margin: '0.2rem 0 0 1.5rem' }}>
+          +{hiddenCount} more event{hiddenCount > 1 ? 's' : ''} this era
+        </p>
+      )}
+    </div>
+  );
+}
+
+function HistorySummary({ eraEvents, world }: { eraEvents: Map<number, DomainEvent[]>; world: World }) {
+  if (world.era === 0) return null;
+
+  const notable: Array<{ era: number; event: DomainEvent }> = [];
+  for (let era = 1; era <= world.era; era++) {
+    const events = eraEvents.get(era) ?? [];
+    for (const e of topEvents(events, 2)) {
+      if (e.type !== 'environment_changed') {
+        notable.push({ era, event: e });
+      }
+    }
+  }
+
+  if (notable.length === 0) return null;
+
+  return (
+    <section style={{ marginTop: '1.5rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
+      <h3 style={{ fontSize: '1em' }}>History</h3>
+      <ul style={{ fontSize: '0.85em', paddingLeft: '1.5rem', color: '#444' }}>
+        {notable.map(({ era, event }) => {
+          const { summary, cause } = describeEvent(event, world);
+          return (
+            <li key={event.id as string}>
+              <span style={{ color: '#888', marginRight: '0.4rem' }}>Era {era}</span>
+              {summary}
+              {cause && <span style={{ color: '#aaa', marginLeft: '0.3rem' }}>({cause})</span>}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
@@ -354,7 +478,7 @@ function RelocationForm({
   seed: string;
   archetypeId: string;
   pressureId: string;
-  relocation?: { speciesId: string; fromRegionId: string; toRegionId: string; amount: number; era: number };
+  relocation?: RelocationNav;
 }) {
   if (world.interventionUsed) {
     return (
@@ -372,8 +496,11 @@ function RelocationForm({
   if (extantSpecies.length === 0) return null;
 
   return (
-    <section style={{ marginTop: '1.5rem' }}>
-      <h3 style={{ fontSize: '1em' }}>Population Relocation (one-time intervention)</h3>
+    <section style={{ marginTop: '1.5rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
+      <h3 style={{ fontSize: '1em' }}>Population Relocation <span style={{ fontWeight: 'normal', color: '#888', fontSize: '0.85em' }}>(one-time intervention)</span></h3>
+      <p style={{ fontSize: '0.85em', color: '#666', marginTop: 0 }}>
+        Move part of a species population to a connected region. The simulation will determine whether they survive.
+      </p>
       <form method="get">
         <input type="hidden" name="seed" value={seed} />
         <input type="hidden" name="archetype" value={archetypeId} />
@@ -383,7 +510,7 @@ function RelocationForm({
         <table>
           <tbody>
             <tr>
-              <td><label htmlFor="rel-species">Species</label></td>
+              <td style={{ paddingRight: '1rem' }}><label htmlFor="rel-species">Species</label></td>
               <td>
                 <select id="rel-species" name="rel-species" defaultValue={relocation?.speciesId} style={{ minWidth: '12rem' }}>
                   {extantSpecies.map(sp => (
@@ -393,7 +520,7 @@ function RelocationForm({
               </td>
             </tr>
             <tr>
-              <td><label htmlFor="rel-from">From region</label></td>
+              <td style={{ paddingRight: '1rem' }}><label htmlFor="rel-from">From region</label></td>
               <td>
                 <select id="rel-from" name="rel-from" defaultValue={relocation?.fromRegionId} style={{ minWidth: '12rem' }}>
                   {world.regions.map(r => (
@@ -403,7 +530,7 @@ function RelocationForm({
               </td>
             </tr>
             <tr>
-              <td><label htmlFor="rel-to">To region</label></td>
+              <td style={{ paddingRight: '1rem' }}><label htmlFor="rel-to">To region</label></td>
               <td>
                 <select id="rel-to" name="rel-to" defaultValue={relocation?.toRegionId} style={{ minWidth: '12rem' }}>
                   {world.regions.map(r => (
@@ -413,7 +540,7 @@ function RelocationForm({
               </td>
             </tr>
             <tr>
-              <td><label htmlFor="rel-amount">Amount</label></td>
+              <td style={{ paddingRight: '1rem' }}><label htmlFor="rel-amount">Amount</label></td>
               <td>
                 <input
                   id="rel-amount"
@@ -449,41 +576,55 @@ function WorldInspector({
   archetypeId: string;
   pressureId: string;
   eraEvents: Map<number, DomainEvent[]>;
-  relocation?: { speciesId: string; fromRegionId: string; toRegionId: string; amount: number; era: number };
+  relocation?: RelocationNav;
 }) {
   const extant = world.species.filter(s => s.status === 'extant');
   const extinct = world.species.filter(s => s.status === 'extinct');
   const currentEvents = eraEvents.get(world.era) ?? [];
+  const archetype = WORLD_ARCHETYPES.get(world.genesisConfig.worldArchetypeId);
+  const pressure = PRESSURE_ARCHETYPES.get(world.genesisConfig.environmentalPressureId);
 
   return (
     <article>
-      <h2>
+      <h2 style={{ marginBottom: '0.25rem' }}>
         {world.name}
-        <span style={{ fontWeight: 'normal', fontSize: '0.75em', marginLeft: '1rem', color: '#666' }}>
+        <span style={{ fontWeight: 'normal', fontSize: '0.7em', marginLeft: '1rem', color: '#666' }}>
           seed: {world.genesisConfig.seed}
         </span>
       </h2>
-      <p style={{ color: '#666', fontSize: '0.9em' }}>
-        {WORLD_ARCHETYPES.get(world.genesisConfig.worldArchetypeId)?.description}{' '}
-        Pressure: <em>{PRESSURE_ARCHETYPES.get(world.genesisConfig.environmentalPressureId)?.name}</em>.
+      <p style={{ color: '#555', fontSize: '0.9em', marginTop: '0.25rem' }}>
+        {archetype?.description}{' '}
+        Pressure: <em>{pressure?.name}</em>
+        {pressure?.description && <span style={{ color: '#888' }}> — {pressure.description}</span>}
       </p>
 
-      {extinct.length > 0 && (
-        <p style={{ color: '#c00', fontSize: '0.9em' }}>
-          Extinct: {extinct.map(s => s.name).join(', ')}
-        </p>
-      )}
-      <p style={{ fontSize: '0.9em', color: '#333' }}>
-        {extant.length} extant species · {world.regions.length} regions
-      </p>
+      <div style={{ fontSize: '0.9em', color: '#333', display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+        <span>{extant.length} extant species</span>
+        {extinct.length > 0 && (
+          <span style={{ color: '#c00' }}>
+            Extinct: {extinct.map(s => s.name).join(', ')}
+          </span>
+        )}
+      </div>
 
       <EraControls seed={seed} archetypeId={archetypeId} pressureId={pressureId} era={world.era} relocation={relocation} />
 
-      <h3 style={{ fontSize: '0.95em', marginBottom: '0.25rem' }}>Era {world.era} events</h3>
-      <EraEventLog events={currentEvents} world={world} />
+      {world.era === 0 ? (
+        <p style={{ fontSize: '0.85em', color: '#666', fontStyle: 'italic' }}>
+          Advance eras to observe how pressure, food web dynamics, and ecological competition unfold.
+          Watch for migrations, adaptations, and extinctions.
+        </p>
+      ) : (
+        <>
+          <h3 style={{ fontSize: '0.95em', marginBottom: '0.25rem' }}>Era {world.era} events</h3>
+          <EraEventLog events={currentEvents} world={world} />
+        </>
+      )}
 
       <RegionsTable world={world} />
       <SpeciesTable world={world} />
+      <LineageSection world={world} />
+      <HistorySummary eraEvents={eraEvents} world={world} />
 
       <RelocationForm
         world={world}
@@ -502,7 +643,7 @@ function WorldInspector({
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-type RelocationParams = { speciesId: string; fromRegionId: string; toRegionId: string; amount: number; era: number };
+type RelocationParams = RelocationNav;
 
 function parseRelocationParams(params: Record<string, string | string[] | undefined>): RelocationParams | undefined {
   const speciesId = typeof params['rel-species'] === 'string' ? params['rel-species'] : undefined;
@@ -560,14 +701,12 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
         return w;
       };
 
-      // Apply relocation at era 0 if that's when it was issued
       world = applyRelocation(world);
 
       for (let era = 0; era < targetEra; era++) {
         const result = advanceEra(world);
         world = result.world;
         eraEvents.set(era + 1, [...result.events]);
-        // Apply relocation immediately after reaching the era it was issued at
         world = applyRelocation(world);
       }
     } catch (err) {
@@ -577,7 +716,11 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
 
   return (
     <main style={{ fontFamily: 'monospace', maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
-      <h1>Terrarium</h1>
+      <h1 style={{ marginBottom: '0.25rem' }}>Terrarium</h1>
+      <p style={{ color: '#888', fontSize: '0.85em', marginTop: 0 }}>
+        An ecosystem evolution simulator. Choose a world and pressure, then watch life respond.
+      </p>
+
       <GenesisForm current={current} />
 
       {errorMessage && (
