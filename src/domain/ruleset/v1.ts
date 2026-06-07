@@ -1,7 +1,7 @@
-// All balancing knobs for ruleset version 1.1.0.
+// All balancing knobs for ruleset version 1.2.0.
 // Every named constant in SIMULATION_RULES.md lives here.
 // Change a value → increment RULESET_VERSION → old saved worlds become incompatible.
-export const RULESET_VERSION = '1.1.0' as const;
+export const RULESET_VERSION = '1.2.0' as const;
 
 export const Ruleset = {
   version: RULESET_VERSION,
@@ -57,6 +57,7 @@ export const Ruleset = {
   ISOLATION_MIN_TRACKED_POPULATION: 10,
 
   // ── Extinction ───────────────────────────────────────────────────────────
+  MINIMUM_VIABLE_POPULATION: 2,
   EXTINCTION_CAUSE_WINDOW: 3,
 
   // ── Environmental pressures ───────────────────────────────────────────────
