@@ -25,14 +25,14 @@ This document tracks product and simulation questions that remain open after def
 
 Formula-level decisions are defined in `docs/SIMULATION_RULES.md`. The following list records their status and remaining content work:
 
-1. **Still open:** What fictional duration does one era represent to the player?
+1. **Decided:** One era represents one ecological generation, approximately 10–30 years of abstract time. The UI labels time as "Era 1", "Era 2", etc. See `docs/TEMPLATE_CATALOG.md`.
 2. **Decided:** Producer growth, consumption, competition, predation (fixed 50% accessible-prey rate for MVP), reproduction, and mortality formulas. Each consumer has exactly one primary food species for the MVP.
 3. **Decided:** Habitat suitability from preferred ranges, tolerance traits, and shelter.
 4. **Decided:** Migration triggers, legally reachable destination scoring, movement amount, and one-era migration cooldown.
 5. **Decided:** Adaptation interval, benefit threshold, upkeep cost, and origin bounds.
 6. **Decided:** Isolation, divergence, and viable-population thresholds for speciation.
 7. **Decided:** Player-visible event thresholds and concise-report ranking.
-8. **Still open content work:** Starting template values and generation compatibility matrices that create viable but varied ecosystems.
+8. **Decided:** Starting template values and generation compatibility matrices authored in `docs/TEMPLATE_CATALOG.md`. First-pass values verified against simulation formulas; subject to revision after Milestone 3 scenario testing.
 
 ## References
 
