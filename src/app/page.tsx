@@ -5,8 +5,6 @@ import type { GenesisConfig, Region, Species, Traits, World } from '@/domain/wor
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const MAX_ERAS = 20;
-
 function suitabilityLabel(pct: number): string {
   if (pct >= 90) return `${pct}%`;
   if (pct >= 70) return `${pct}%`;
@@ -57,7 +55,7 @@ function EraControls({
 }) {
   const base = `?seed=${encodeURIComponent(seed)}&archetype=${archetypeId}&pressure=${pressureId}`;
   const prevUrl = era > 0 ? `${base}&eras=${era - 1}` : null;
-  const nextUrl = era < MAX_ERAS ? `${base}&eras=${era + 1}` : null;
+  const nextUrl = `${base}&eras=${era + 1}`;
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '1rem 0' }}>
@@ -71,17 +69,9 @@ function EraControls({
 
       <strong style={{ minWidth: '5rem', textAlign: 'center' }}>Era {era}</strong>
 
-      {nextUrl ? (
-        <a href={nextUrl} style={{ padding: '4px 12px', border: '1px solid #ccc', textDecoration: 'none', color: '#333' }}>
-          Era {era + 1} ▶
-        </a>
-      ) : (
-        <span style={{ padding: '4px 12px', border: '1px solid #eee', color: '#aaa' }}>▶</span>
-      )}
-
-      {era === MAX_ERAS && (
-        <span style={{ color: '#888', fontSize: '0.85em' }}>(max {MAX_ERAS} eras)</span>
-      )}
+      <a href={nextUrl} style={{ padding: '4px 12px', border: '1px solid #ccc', textDecoration: 'none', color: '#333' }}>
+        Era {era + 1} ▶
+      </a>
     </div>
   );
 }
@@ -321,7 +311,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
   const archetypeId = typeof params.archetype === 'string' ? params.archetype : '';
   const pressureId = typeof params.pressure === 'string' ? params.pressure : '';
   const erasParam = typeof params.eras === 'string' ? parseInt(params.eras, 10) : 0;
-  const targetEra = Number.isFinite(erasParam) ? Math.max(0, Math.min(erasParam, MAX_ERAS)) : 0;
+  const targetEra = Number.isFinite(erasParam) ? Math.max(0, erasParam) : 0;
 
   const current: Partial<GenesisConfig> = {
     seed: seed || undefined,
