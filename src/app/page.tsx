@@ -1,13 +1,22 @@
 import { generate, WORLD_ARCHETYPES, PRESSURE_ARCHETYPES } from '@/domain/generation';
 import { habitatSuitability, producerCapacity } from '@/domain/simulation/formulas';
-import type { GenesisConfig, Region, Species, World } from '@/domain/world/types';
+import { advanceEra } from '@/domain/simulation/pipeline';
+import type { GenesisConfig, Region, Species, Traits, World } from '@/domain/world/types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+const MAX_ERAS = 20;
+
 function suitabilityLabel(pct: number): string {
-  if (pct >= 90) return `${pct}% ✓`;
+  if (pct >= 90) return `${pct}%`;
   if (pct >= 70) return `${pct}%`;
-  return `${pct}% ✗`;
+  return `${pct}%`;
+}
+
+function suitabilityColor(pct: number): string {
+  if (pct >= 80) return '#090';
+  if (pct >= 60) return '#850';
+  return '#c00';
 }
 
 function suitsForRegion(species: Species, region: Region): number {
@@ -18,7 +27,66 @@ function totalPop(sp: Species): number {
   return Object.values(sp.populations).reduce<number>((s, p) => s + (p ?? 0), 0);
 }
 
-// ── Sub-components (plain functions returning JSX) ────────────────────────────
+function traitsChanged(current: Traits, origin: Traits): boolean {
+  return (
+    current.bodySize !== origin.bodySize ||
+    current.mobility !== origin.mobility ||
+    current.coldTolerance !== origin.coldTolerance ||
+    current.droughtTolerance !== origin.droughtTolerance
+  );
+}
+
+function traitDelta(current: number, origin: number): string {
+  if (current === origin) return `${current}`;
+  const sign = current > origin ? '+' : '';
+  return `${current} (${sign}${current - origin})`;
+}
+
+// ── Era navigation controls ───────────────────────────────────────────────────
+
+function EraControls({
+  seed,
+  archetypeId,
+  pressureId,
+  era,
+}: {
+  seed: string;
+  archetypeId: string;
+  pressureId: string;
+  era: number;
+}) {
+  const base = `?seed=${encodeURIComponent(seed)}&archetype=${archetypeId}&pressure=${pressureId}`;
+  const prevUrl = era > 0 ? `${base}&eras=${era - 1}` : null;
+  const nextUrl = era < MAX_ERAS ? `${base}&eras=${era + 1}` : null;
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '1rem 0' }}>
+      {prevUrl ? (
+        <a href={prevUrl} style={{ padding: '4px 12px', border: '1px solid #ccc', textDecoration: 'none', color: '#333' }}>
+          ◀ Era {era - 1}
+        </a>
+      ) : (
+        <span style={{ padding: '4px 12px', border: '1px solid #eee', color: '#aaa' }}>◀</span>
+      )}
+
+      <strong style={{ minWidth: '5rem', textAlign: 'center' }}>Era {era}</strong>
+
+      {nextUrl ? (
+        <a href={nextUrl} style={{ padding: '4px 12px', border: '1px solid #ccc', textDecoration: 'none', color: '#333' }}>
+          Era {era + 1} ▶
+        </a>
+      ) : (
+        <span style={{ padding: '4px 12px', border: '1px solid #eee', color: '#aaa' }}>▶</span>
+      )}
+
+      {era === MAX_ERAS && (
+        <span style={{ color: '#888', fontSize: '0.85em' }}>(max {MAX_ERAS} eras)</span>
+      )}
+    </div>
+  );
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 function GenesisForm({ current }: { current: Partial<GenesisConfig> }) {
   const archetypes = [...WORLD_ARCHETYPES.values()];
@@ -81,7 +149,7 @@ function RegionsTable({ world }: { world: World }) {
       <table style={{ borderCollapse: 'collapse', width: '100%' }}>
         <thead>
           <tr>
-            {['Region', 'Temperature', 'Moisture', 'Fertility', 'Shelter', 'Capacity', 'Neighbors'].map(h => (
+            {['Region', 'Temp', 'Moisture', 'Fertility', 'Shelter', 'Capacity', 'Neighbors'].map(h => (
               <th key={h} style={{ textAlign: 'left', padding: '4px 12px', borderBottom: '1px solid #ccc' }}>{h}</th>
             ))}
           </tr>
@@ -122,33 +190,66 @@ function SpeciesTable({ world }: { world: World }) {
       <table style={{ borderCollapse: 'collapse', width: '100%' }}>
         <thead>
           <tr>
-            {['Name', 'Role', 'Body', 'Mobility', 'Cold', 'Drought', 'Diet', 'Total pop', ...world.regions.map(r => `${r.name} suit.`), ...world.regions.map(r => r.name)].map(h => (
+            {[
+              'Name', 'Role', 'Status',
+              'Body', 'Mob', 'Cold', 'Drought',
+              'Diet', 'Total pop',
+              ...world.regions.map(r => `${r.name} suit.`),
+              ...world.regions.map(r => r.name),
+            ].map(h => (
               <th key={h} style={{ textAlign: 'left', padding: '4px 8px', borderBottom: '1px solid #ccc', fontSize: '0.85em' }}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {sorted.map(sp => {
+            const extinct = sp.status === 'extinct';
+            const adapted = traitsChanged(sp.traits, sp.originTraits);
+            const isChild = sp.parentSpeciesId !== null;
+            const pop = totalPop(sp);
+
+            const rowStyle = {
+              opacity: extinct ? 0.45 : 1,
+              background: isChild ? '#f0fff0' : undefined,
+            };
+
             const diet = sp.dietIds.map(did => {
               const food = world.species.find(s => s.id === did);
-              return food?.name ?? did;
+              return food?.name ?? (did as string);
             }).join(', ');
 
             return (
-              <tr key={sp.id as string}>
-                <td style={{ padding: '4px 8px' }}><strong>{sp.name}</strong></td>
+              <tr key={sp.id as string} style={rowStyle}>
+                <td style={{ padding: '4px 8px' }}>
+                  <strong>{sp.name}</strong>
+                  {isChild && <span style={{ fontSize: '0.75em', color: '#090', marginLeft: '4px' }}>✦new</span>}
+                </td>
                 <td style={{ padding: '4px 8px' }}>{sp.trophicRole}</td>
-                <td style={{ padding: '4px 8px', textAlign: 'center' }}>{sp.traits.bodySize}</td>
-                <td style={{ padding: '4px 8px', textAlign: 'center' }}>{sp.traits.mobility}</td>
-                <td style={{ padding: '4px 8px', textAlign: 'center' }}>{sp.traits.coldTolerance}</td>
-                <td style={{ padding: '4px 8px', textAlign: 'center' }}>{sp.traits.droughtTolerance}</td>
+                <td style={{ padding: '4px 8px', color: extinct ? '#c00' : '#090' }}>
+                  {extinct ? `✗ extinct era ${sp.extinctionEra}` : '✓'}
+                </td>
+                <td style={{ padding: '4px 8px', textAlign: 'center', color: adapted && sp.traits.bodySize !== sp.originTraits.bodySize ? '#00c' : undefined }}>
+                  {traitDelta(sp.traits.bodySize, sp.originTraits.bodySize)}
+                </td>
+                <td style={{ padding: '4px 8px', textAlign: 'center', color: adapted && sp.traits.mobility !== sp.originTraits.mobility ? '#00c' : undefined }}>
+                  {traitDelta(sp.traits.mobility, sp.originTraits.mobility)}
+                </td>
+                <td style={{ padding: '4px 8px', textAlign: 'center', color: adapted && sp.traits.coldTolerance !== sp.originTraits.coldTolerance ? '#00c' : undefined }}>
+                  {traitDelta(sp.traits.coldTolerance, sp.originTraits.coldTolerance)}
+                </td>
+                <td style={{ padding: '4px 8px', textAlign: 'center', color: adapted && sp.traits.droughtTolerance !== sp.originTraits.droughtTolerance ? '#00c' : undefined }}>
+                  {traitDelta(sp.traits.droughtTolerance, sp.originTraits.droughtTolerance)}
+                </td>
                 <td style={{ padding: '4px 8px', fontSize: '0.85em' }}>{diet || '—'}</td>
-                <td style={{ padding: '4px 8px', textAlign: 'center' }}>{totalPop(sp)}</td>
-                {world.regions.map(r => (
-                  <td key={`suit-${r.id}`} style={{ padding: '4px 8px', textAlign: 'center', fontSize: '0.85em' }}>
-                    {suitabilityLabel(suitsForRegion(sp, r))}
-                  </td>
-                ))}
+                <td style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 'bold' }}>{pop}</td>
+                {world.regions.map(r => {
+                  const s = suitsForRegion(sp, r);
+                  return (
+                    <td key={`suit-${r.id}`} style={{ padding: '4px 8px', textAlign: 'center', fontSize: '0.85em', color: suitabilityColor(s) }}>
+                      {suitabilityLabel(s)}
+                    </td>
+                  );
+                })}
                 {world.regions.map(r => (
                   <td key={`pop-${r.id}`} style={{ padding: '4px 8px', textAlign: 'center' }}>
                     {sp.populations[r.id] ?? 0}
@@ -159,25 +260,53 @@ function SpeciesTable({ world }: { world: World }) {
           })}
         </tbody>
       </table>
+      <p style={{ fontSize: '0.8em', color: '#888', marginTop: '0.5rem' }}>
+        Blue trait value = adapted from origin · ✦new = speciated this run · faded row = extinct
+      </p>
     </section>
   );
 }
 
-function WorldInspector({ world }: { world: World }) {
+function WorldInspector({
+  world,
+  seed,
+  archetypeId,
+  pressureId,
+}: {
+  world: World;
+  seed: string;
+  archetypeId: string;
+  pressureId: string;
+}) {
+  const extant = world.species.filter(s => s.status === 'extant');
+  const extinct = world.species.filter(s => s.status === 'extinct');
+
   return (
     <article>
       <h2>
         {world.name}
         <span style={{ fontWeight: 'normal', fontSize: '0.75em', marginLeft: '1rem', color: '#666' }}>
-          Era {world.era} · seed: {world.genesisConfig.seed}
+          seed: {world.genesisConfig.seed}
         </span>
       </h2>
       <p style={{ color: '#666', fontSize: '0.9em' }}>
         {WORLD_ARCHETYPES.get(world.genesisConfig.worldArchetypeId)?.description}{' '}
         Pressure: <em>{PRESSURE_ARCHETYPES.get(world.genesisConfig.environmentalPressureId)?.name}</em>.
       </p>
+
+      {extinct.length > 0 && (
+        <p style={{ color: '#c00', fontSize: '0.9em' }}>
+          Extinct: {extinct.map(s => s.name).join(', ')}
+        </p>
+      )}
+      <p style={{ fontSize: '0.9em', color: '#333' }}>
+        {extant.length} extant species · {world.regions.length} regions
+      </p>
+
+      <EraControls seed={seed} archetypeId={archetypeId} pressureId={pressureId} era={world.era} />
       <RegionsTable world={world} />
       <SpeciesTable world={world} />
+      <EraControls seed={seed} archetypeId={archetypeId} pressureId={pressureId} era={world.era} />
     </article>
   );
 }
@@ -191,6 +320,8 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
   const seed = typeof params.seed === 'string' ? params.seed.trim() : '';
   const archetypeId = typeof params.archetype === 'string' ? params.archetype : '';
   const pressureId = typeof params.pressure === 'string' ? params.pressure : '';
+  const erasParam = typeof params.eras === 'string' ? parseInt(params.eras, 10) : 0;
+  const targetEra = Number.isFinite(erasParam) ? Math.max(0, Math.min(erasParam, MAX_ERAS)) : 0;
 
   const current: Partial<GenesisConfig> = {
     seed: seed || undefined,
@@ -206,21 +337,31 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
   if (canGenerate) {
     try {
       world = generate({ seed, worldArchetypeId: archetypeId, environmentalPressureId: pressureId });
+      for (let era = 0; era < targetEra; era++) {
+        world = advanceEra(world).world;
+      }
     } catch (err) {
       errorMessage = err instanceof Error ? err.message : String(err);
     }
   }
 
   return (
-    <main style={{ fontFamily: 'monospace', maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
+    <main style={{ fontFamily: 'monospace', maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
       <h1>Terrarium</h1>
       <GenesisForm current={current} />
 
       {errorMessage && (
-        <p style={{ color: 'red' }}>Generation failed: {errorMessage}</p>
+        <p style={{ color: 'red' }}>Error: {errorMessage}</p>
       )}
 
-      {world && <WorldInspector world={world} />}
+      {world && (
+        <WorldInspector
+          world={world}
+          seed={seed}
+          archetypeId={archetypeId}
+          pressureId={pressureId}
+        />
+      )}
 
       {!world && !errorMessage && (
         <p style={{ color: '#888' }}>
