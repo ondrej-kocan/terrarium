@@ -15,9 +15,45 @@ The player is a naturalist, not a god. The simulation owns the world, and every 
 
 ## Current Status
 
-**Design complete enough to begin the first implementation milestone. No application code exists yet.**
+**Milestone 2 complete.** Template catalog and initial generation are implemented. A world inspector is available at the local dev URL — enter any seed, pick an archetype and pressure, and inspect the generated regions and species.
+
+- Milestone 0 — Simulation rules and formulas: **done**
+- Milestone 1 — Domain foundations and determinism: **done**
+- Milestone 2 — Template catalog and initial generation: **done**
+- Milestone 3 — Era simulation vertical slice: next
 
 The MVP is intentionally constrained to three generated regions, exactly five archetype-generated starting species, one persistent environmental pressure, and one intervention type. Generation and simulation are deterministic for a given seed and command history.
+
+## Development Setup
+
+```bash
+npm install
+npm run dev        # Next.js dev server at http://localhost:3000
+npm run test       # Vitest in watch mode
+npm run test:run   # Vitest single run
+npm run type-check # TypeScript check (no emit)
+npm run build      # Production build
+```
+
+### Project Structure
+
+```
+src/
+  app/                      # Next.js app router (UI layer)
+  application/              # Command handlers (use-case layer)
+  domain/
+    commands/               # Command and result types
+    events/                 # Domain event types
+    generation/             # World generation (archetypes, naming, validation)
+    ruleset/                # Versioned simulation knobs
+    simulation/             # Shared formula functions
+    world/                  # Core world types and invariants
+  infrastructure/
+    random/                 # Seeded deterministic PRNG
+  test/
+    fixtures/               # Shared test world builders
+docs/                       # Design and planning documents
+```
 
 ## Project Documentation
 

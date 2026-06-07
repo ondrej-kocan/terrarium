@@ -206,6 +206,17 @@ At each milestone, ask:
 | Scope expands before fun is proven | Enforce MVP exclusions and milestone exit criteria |
 | Formula changes break saved worlds | Include a ruleset version in reproducibility and persistence contracts |
 
+## Current Status
+
+| Milestone | Status |
+| --- | --- |
+| M0 — Simulation rules | Done |
+| M1 — Domain foundations | Done |
+| M2 — Template catalog and initial generation | Done |
+| M3 — Era simulation vertical slice | Next |
+| M4 — Intervention and reports | Planned |
+| M5 — Playable in-memory web slice | Planned |
+
 ## Implementation Readiness Checklist
 
 Before writing production code, confirm:
