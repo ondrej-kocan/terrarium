@@ -48,7 +48,7 @@ A run contains:
 - One selected environmental pressure
 - One visible deterministic seed
 - Exactly three template-generated regions
-- Approximately five archetype-generated starting species
+- Exactly five archetype-generated starting species
 - Discrete era advancement
 - One optional population-relocation intervention
 - Adaptation, migration, rare speciation, and extinction
@@ -86,7 +86,7 @@ The generated world must be validated as viable before the simulation begins.
 
 The player does not create or name species. Starting species should feel discovered.
 
-The MVP generates approximately:
+The MVP generates exactly five starting species:
 
 - Two producers
 - Two herbivores
@@ -126,7 +126,7 @@ For an identical ruleset version, Genesis configuration, and command history, Te
 
 Players can influence but not directly control the ecosystem.
 
-The only MVP intervention is relocating part of one extant species population to another allowed region. The engine validates the command and resolves all consequences through normal simulation rules.
+The only MVP intervention is relocating part of one extant species population to another connected, legally reachable region. Environmental compatibility is not required; the engine validates the command, and normal simulation rules determine whether the relocated population survives or succeeds.
 
 The player may not directly create species, edit traits, change populations, or modify geography and climate values.
 
@@ -176,7 +176,7 @@ Architecture requirements:
 - Structured events support explainability and replay diagnostics.
 - Persistence is introduced after the in-memory domain loop is proven.
 
-See [Architecture](docs/ARCHITECTURE.md), [Domain Model](docs/DOMAIN_MODEL.md), and [Implementation Plan](docs/IMPLEMENTATION_PLAN.md) for implementation-preparation detail.
+See [Architecture](docs/ARCHITECTURE.md), [Domain Model](docs/DOMAIN_MODEL.md), [Implementation Plan](docs/IMPLEMENTATION_PLAN.md), and [Simulation Rules](docs/SIMULATION_RULES.md) for implementation-preparation detail.
 
 ## Scope Principle
 

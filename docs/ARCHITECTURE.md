@@ -261,6 +261,11 @@ src/
     scenarios/
 
 docs/
+  ARCHITECTURE.md
+  DOMAIN_MODEL.md
+  IMPLEMENTATION_PLAN.md
+  MVP_SCOPE.md
+  SIMULATION_RULES.md
 ```
 
 Dependencies point inward: infrastructure and UI may depend on application/domain APIs; the domain must not import Next.js, React, Drizzle, SQLite, or AI-provider code.

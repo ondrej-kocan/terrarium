@@ -233,8 +233,9 @@ Before writing production code, confirm:
 - [x] Architecture boundaries and dependency direction are documented.
 - [x] Conceptual domain model, commands, events, and invariants are documented.
 - [x] Milestone sequence and exit criteria are documented.
-- [ ] Formula-level simulation rules are resolved in Milestone 0.
+- [x] Formula-level simulation rules are resolved in `SIMULATION_RULES.md`.
 - [ ] Initial template values and compatibility matrices are authored.
-- [ ] Product decisions are made for era duration and report significance thresholds.
+- [ ] A product decision is made for era duration.
+- [x] Report significance thresholds are defined in `SIMULATION_RULES.md`.
 
 The unchecked items are the first implementation/design-spike work. They do not justify expanding MVP scope.

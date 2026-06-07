@@ -9,7 +9,7 @@
 - Major state changes produce structured events with explicit causes.
 - MVP traits and ecology are species-level abstractions, not individual biology.
 
-This document defines conceptual types and responsibilities. Exact TypeScript shapes and formulas will be finalized during implementation.
+This document defines conceptual types and responsibilities. Exact TypeScript shapes will be finalized during implementation; first-pass formulas are defined in [Simulation Rules](SIMULATION_RULES.md).
 
 ## Aggregate Boundary
 
@@ -216,11 +216,11 @@ Behavior:
 
 - Validates that the intervention remains available.
 - Validates that the species is extant and the source population is sufficient.
-- Validates that destination relocation is allowed under MVP connectivity rules.
+- Validates that the destination is connected and legally reachable under MVP connectivity rules.
 - Moves the accepted amount and emits a relocation event.
 - Consumes the world's one intervention opportunity.
 
-Compatibility means the destination is legally reachable; it does not guarantee that the relocated population will survive.
+The destination does not need to be environmentally compatible. Habitat suitability, survival, and success are determined later by the normal simulation rules.
 
 ## Initial Domain Event Catalog
 
@@ -262,6 +262,7 @@ Not every small numeric change should become a major player-facing event. The en
 ### World and Region
 
 - An MVP world has exactly three regions.
+- At generation, an MVP world has exactly five starting species: two producers, two herbivores, and one predator.
 - Region IDs and species IDs are unique within a world.
 - Region connections reference existing regions.
 - Migration and relocation only occur across allowed connections.
@@ -297,9 +298,9 @@ Not every small numeric change should become a major player-facing event. The en
 - Generation and simulation use only injected seeded random streams.
 - Equal ruleset version, Genesis config, and command history produce equal snapshots and event history.
 
-## Important Modeling Decisions Still Open
+## Formula Decisions Requiring Validation
 
-The following must be settled during the simulation-spike milestone before the production domain implementation is considered stable:
+The following were settled at a first-pass level in [Simulation Rules](SIMULATION_RULES.md) and must be validated before the production domain implementation is considered stable:
 
 - Exact trait scale and tradeoff formulas
 - Population growth, consumption, predation, and mortality formulas
@@ -308,6 +309,5 @@ The following must be settled during the simulation-spike milestone before the p
 - Adaptation rate and bounds
 - Isolation duration and divergence threshold for speciation
 - Significance thresholds for player-facing events
-- Era duration as presented to the player
 
-These are intentionally formula-level questions. They do not change the MVP boundaries defined above.
+Era duration as presented to the player remains an open presentation decision. The formula decisions above do not change the MVP boundaries defined here.
