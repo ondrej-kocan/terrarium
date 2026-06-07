@@ -81,10 +81,10 @@ Food demand for consumers is:
 First-pass knobs:
 
 - `FOOD_BASE = 1`
-- `BODY_DEMAND_DIVISOR = 4`
+- `BODY_DEMAND_DIVISOR = 6`
 - `MOBILITY_DEMAND_DIVISOR = 5`
 
-A consumer abundance unit therefore needs between `1` and `5` food units per era.
+A consumer abundance unit therefore needs between `1` and `4` food units per era.
 
 ### Region Condition Scales
 
@@ -128,7 +128,7 @@ Generation chooses each species' viable starting regions and then uses these det
 
 | Role | Starting world population | Minimum starting suitability |
 | --- | ---: | ---: |
-| Producer | `STARTING_PRODUCER_POPULATION = 60` | `70` |
+| Producer | `STARTING_PRODUCER_POPULATION = 100` | `70` |
 | Herbivore | `STARTING_HERBIVORE_POPULATION = 30` | `70` |
 | Predator | `STARTING_PREDATOR_POPULATION = 15` | `70` |
 
@@ -487,10 +487,10 @@ A grows from `50` to `74`; poorly suited B falls from `40` to `26` under crowdin
 
 A herbivore has population `20`, body size `4`, and mobility `5`.
 
-- Food demand per population is `1 + floor(4 / 4) + floor(5 / 5) = 3`.
-- Total demand is `20 × 3 = 60`.
-- Its edible producers supply only `30` units after producer growth and competition.
-- It consumes `30`, so food fulfillment is `50%`.
+- Food demand per population is `1 + floor(4 / 6) + floor(5 / 5) = 2`.
+- Total demand is `20 × 2 = 40`.
+- Its edible producers supply only `20` units after producer growth and competition.
+- It consumes `20`, so food fulfillment is `50%`.
 
 At suitability `80`, its births are `20 × 20% × 80% × 50% = 1.6`, rounded to `2`. Starvation mortality contributes `(100 - 50) × 50% = 25%` mortality before baseline, upkeep, and habitat mortality are added.
 
@@ -500,7 +500,7 @@ A predator population of `15` has body size `4` and mobility `5`. Its prey popul
 
 `accessiblePrey = 40 × 50 / 100 = 20`
 
-Food demand per population is `1 + floor(4/4) + floor(5/5) = 3`, so total demand is `15 × 3 = 45`. With only `20` accessible prey, food fulfillment is `clamp(0, 100, 20 × 100 / 45) = 44%`. The predator consumes all 20 accessible prey units and suffers significant starvation mortality.
+Food demand per population is `1 + floor(4/6) + floor(5/5) = 2`, so total demand is `15 × 2 = 30`. With only `20` accessible prey, food fulfillment is `clamp(0, 100, 20 × 100 / 30) = 67%`. The predator consumes all 20 accessible prey units and suffers moderate starvation mortality.
 
 The richer catch formula that incorporates body size, mobility, and shelter is preserved in Section 17 as the first post-MVP predation upgrade.
 
