@@ -161,10 +161,25 @@ function tryGenerate(
   const builtSpecies: Species[] = [];
 
   // Producers
+  // Seed the primary (best) region at full starting population, plus any other
+  // region with suitability >= 30% at a proportionally smaller population.
+  // This ensures every region has some producer biomass so relocated consumers
+  // always find food, and the world feels naturally inhabited from the start.
   for (const [i, aid] of archetype.producerArchetypeIds.entries()) {
+    const tmpl = SPECIES_ARCHETYPES.get(aid)!;
     const traits = traitMap.get(aid)!;
     const regionIndex = producerRegionIndices[i]!;
-    const rid = regionIds[regionIndex]!;
+
+    const populations: Record<string, number> = {};
+    for (let j = 0; j < conditions.length; j++) {
+      const rj = regionIds[j] as string;
+      const suit = habitatSuitability(affinityFrom(tmpl), traits, conditions[j]!);
+      if (j === regionIndex) {
+        populations[rj] = Ruleset.STARTING_PRODUCER_POPULATION;
+      } else if (suit >= 30) {
+        populations[rj] = Math.round(Ruleset.STARTING_PRODUCER_POPULATION * suit / 100);
+      }
+    }
 
     builtSpecies.push({
       id: speciesId(aid),
@@ -173,9 +188,9 @@ function tryGenerate(
       trophicRole: 'producer',
       traits,
       originTraits: traits,
-      habitatAffinity: affinityFrom(SPECIES_ARCHETYPES.get(aid)!),
+      habitatAffinity: affinityFrom(tmpl),
       dietIds: [],
-      populations: { [rid]: Ruleset.STARTING_PRODUCER_POPULATION },
+      populations,
       isolationEras: {},
       candidateTraits: {},
       lastMigrationEra: {},
