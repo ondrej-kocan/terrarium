@@ -239,9 +239,9 @@ A medium-sized, mobile herbivore suited to open lowland and upland environments.
 | Adaptation limit per trait | +3 from origin value |
 | Valid diet | One of: Riparian Reed, Hardy Groundcover |
 
-**Starting food demand per unit (max starting traits):** `1 + floor(4/4) + floor(4/5) = 2`
+**Starting food demand per unit (max starting traits):** `1 + floor(4/6) + floor(4/5) = 1`
 
-**Starting food viability (30 pop, demand 2, producer 60 in same region):** `60 / 60 = 100%`
+**Starting food viability (30 pop, demand 1, producer 100 in same region):** `100 / 30 = 333%` (fully satisfied)
 
 **Primary archetypes:** River Basin, Highland Valley
 
@@ -262,9 +262,9 @@ A heavier, less mobile herbivore that prefers moist, sheltered environments. Its
 | Adaptation limit per trait | +3 from origin value |
 | Valid diet | One of: Riparian Reed, Tropical Fern |
 
-**Starting food demand per unit (max starting traits):** `1 + floor(5/4) + floor(3/5) = 2`
+**Starting food demand per unit (max starting traits):** `1 + floor(5/6) + floor(3/5) = 1`
 
-**Starting food viability (30 pop, demand 2, producer 60 in same region):** `60 / 60 = 100%`
+**Starting food viability (30 pop, demand 1, producer 100 in same region):** `100 / 30 = 333%` (fully satisfied)
 
 **Primary archetypes:** River Basin, Volcanic Island
 
@@ -285,9 +285,9 @@ A small, agile herbivore built for highland and summit environments. High cold a
 | Adaptation limit per trait | +3 from origin value |
 | Valid diet | One of: Alpine Sedge, Hardy Groundcover |
 
-**Starting food demand per unit (max starting traits):** `1 + floor(3/4) + floor(5/5) = 2`
+**Starting food demand per unit (max starting traits):** `1 + floor(3/6) + floor(5/5) = 2`
 
-**Starting food viability (30 pop, demand 2, producer 60 in same region):** `60 / 60 = 100%`
+**Starting food viability (30 pop, demand 2, producer 100 in same region):** `100 / 60 = 167%` (fully satisfied)
 
 **Primary archetypes:** Volcanic Island (Midslope, Summit), Highland Valley
 
@@ -310,7 +310,7 @@ A medium-bodied, medium-mobility predator with broad habitat tolerances. General
 | Adaptation limit per trait | +3 from origin value |
 | Valid prey | One herbivore species (assigned at generation) |
 
-**Starting food demand per unit (max starting traits):** `1 + floor(3/4) + floor(4/5) = 1`
+**Starting food demand per unit (max starting traits):** `1 + floor(3/6) + floor(4/5) = 1`
 
 **Starting food viability (15 pop, demand 1, prey 30 in same region):**
 `accessible = 30 × 50% = 15`, fulfillment = `15 / 15 = 100%`

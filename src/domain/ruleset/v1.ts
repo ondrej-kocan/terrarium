@@ -1,7 +1,7 @@
-// All balancing knobs for ruleset version 1.0.0.
+// All balancing knobs for ruleset version 1.1.0.
 // Every named constant in SIMULATION_RULES.md lives here.
 // Change a value → increment RULESET_VERSION → old saved worlds become incompatible.
-export const RULESET_VERSION = '1.0.0' as const;
+export const RULESET_VERSION = '1.1.0' as const;
 
 export const Ruleset = {
   version: RULESET_VERSION,
@@ -9,7 +9,7 @@ export const Ruleset = {
   // ── Trait costs ──────────────────────────────────────────────────────────
   TRAIT_UPKEEP_DIVISOR: 8,
   FOOD_BASE: 1,
-  BODY_DEMAND_DIVISOR: 4,
+  BODY_DEMAND_DIVISOR: 6,
   MOBILITY_DEMAND_DIVISOR: 5,
 
   // ── Habitat suitability ──────────────────────────────────────────────────
@@ -68,7 +68,7 @@ export const Ruleset = {
   EXTREME_MOISTURE_SHIFT: 1,
 
   // ── Starting populations ─────────────────────────────────────────────────
-  STARTING_PRODUCER_POPULATION: 60,
+  STARTING_PRODUCER_POPULATION: 100,
   STARTING_HERBIVORE_POPULATION: 30,
   STARTING_PREDATOR_POPULATION: 15,
   STARTING_FOOD_FULFILLMENT: 70,  // percent minimum for valid start
