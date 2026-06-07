@@ -307,9 +307,9 @@ function SpeciesTable({ world }: { world: World }) {
           <tr>
             {[
               'Name', 'Role', 'Status',
+              ...world.regions.map(r => r.name),
               'Body', 'Mob', 'Cold', 'Drought',
               'Diet',
-              ...world.regions.map(r => r.name),
             ].map(h => (
               <th key={h} style={{ textAlign: 'left', padding: '4px 8px', borderBottom: '1px solid #ccc', fontSize: '0.8em', color: '#555', whiteSpace: 'nowrap' }}>{h}</th>
             ))}
@@ -326,6 +326,8 @@ function SpeciesTable({ world }: { world: World }) {
               background: isChild ? '#f0fff0' : undefined,
             };
 
+            const roleAbbrev: Record<string, string> = { producer: 'prod', herbivore: 'herb', predator: 'pred' };
+
             const diet = sp.dietIds.map(did => {
               const food = world.species.find(s => s.id === did);
               return food?.name ?? (did as string);
@@ -337,10 +339,21 @@ function SpeciesTable({ world }: { world: World }) {
                   <strong>{sp.name}</strong>
                   {isChild && <span style={{ fontSize: '0.7em', color: '#090', marginLeft: '4px' }}>✦new</span>}
                 </td>
-                <td style={{ padding: '4px 8px', fontSize: '0.85em', color: '#555' }}>{sp.trophicRole}</td>
+                <td style={{ padding: '4px 8px', fontSize: '0.8em', color: '#555' }}>{roleAbbrev[sp.trophicRole] ?? sp.trophicRole}</td>
                 <td style={{ padding: '4px 8px', color: extinct ? '#c00' : '#090', fontSize: '0.85em', whiteSpace: 'nowrap' }}>
                   {extinct ? `✗ era ${sp.extinctionEra}` : '✓'}
                 </td>
+                {world.regions.map(r => {
+                  const s = suitsForRegion(sp, r);
+                  const regionPop = sp.populations[r.id] ?? 0;
+                  return (
+                    <td key={`region-${r.id}`} style={{ padding: '4px 8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontWeight: regionPop > 0 ? 'bold' : undefined }}>{regionPop}</span>
+                      {' '}
+                      <span style={{ fontSize: '0.8em', color: suitabilityColor(s) }}>({s}%)</span>
+                    </td>
+                  );
+                })}
                 <td style={{ padding: '4px 8px', textAlign: 'center', color: adapted && sp.traits.bodySize !== sp.originTraits.bodySize ? '#00c' : undefined }}>
                   {traitDelta(sp.traits.bodySize, sp.originTraits.bodySize)}
                 </td>
@@ -354,17 +367,6 @@ function SpeciesTable({ world }: { world: World }) {
                   {traitDelta(sp.traits.droughtTolerance, sp.originTraits.droughtTolerance)}
                 </td>
                 <td style={{ padding: '4px 8px', fontSize: '0.8em', color: '#555', whiteSpace: 'nowrap' }}>{diet || '—'}</td>
-                {world.regions.map(r => {
-                  const s = suitsForRegion(sp, r);
-                  const regionPop = sp.populations[r.id] ?? 0;
-                  return (
-                    <td key={`region-${r.id}`} style={{ padding: '4px 8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                      <span style={{ fontWeight: regionPop > 0 ? 'bold' : undefined }}>{regionPop}</span>
-                      {' '}
-                      <span style={{ fontSize: '0.8em', color: suitabilityColor(s) }}>({s}%)</span>
-                    </td>
-                  );
-                })}
               </tr>
             );
           })}
