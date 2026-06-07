@@ -9,6 +9,7 @@
     "start": "next start",
     "test": "vitest",
     "test:run": "vitest run",
+    "analyze": "vitest run src/test/simulation-variety.test.ts --reporter verbose",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
