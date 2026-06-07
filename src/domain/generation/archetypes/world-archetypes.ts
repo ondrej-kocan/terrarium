@@ -9,10 +9,10 @@ const RIVER_BASIN: WorldArchetypeTemplate = {
     {
       role: 'upland-margin',
       displayName: 'Upland Margin',
-      temperature: { min: 4, max: 7 },
-      moisture: { min: 2, max: 5 },
+      temperature: { min: 4, max: 8 },
+      moisture: { min: 1, max: 4 },
       fertility: { min: 3, max: 5 },
-      shelter: { min: 2, max: 4 },
+      shelter: { min: 1, max: 3 },
     },
     {
       role: 'floodplain',
@@ -25,8 +25,8 @@ const RIVER_BASIN: WorldArchetypeTemplate = {
     {
       role: 'riparian-forest',
       displayName: 'Riparian Forest',
-      temperature: { min: 3, max: 6 },
-      moisture: { min: 6, max: 9 },
+      temperature: { min: 2, max: 5 },
+      moisture: { min: 7, max: 10 },
       fertility: { min: 5, max: 7 },
       shelter: { min: 6, max: 8 },
     },
@@ -54,7 +54,7 @@ const VOLCANIC_ISLAND: WorldArchetypeTemplate = {
     {
       role: 'shore',
       displayName: 'Shore',
-      temperature: { min: 6, max: 9 },
+      temperature: { min: 7, max: 10 },
       moisture: { min: 5, max: 8 },
       fertility: { min: 4, max: 6 },
       shelter: { min: 3, max: 5 },
@@ -70,7 +70,7 @@ const VOLCANIC_ISLAND: WorldArchetypeTemplate = {
     {
       role: 'summit',
       displayName: 'Summit',
-      temperature: { min: 1, max: 4 },
+      temperature: { min: 1, max: 3 },
       moisture: { min: 2, max: 5 },
       fertility: { min: 2, max: 4 },
       shelter: { min: 2, max: 4 },
@@ -99,8 +99,8 @@ const HIGHLAND_VALLEY: WorldArchetypeTemplate = {
     {
       role: 'western-ridge',
       displayName: 'Western Ridge',
-      temperature: { min: 2, max: 5 },
-      moisture: { min: 3, max: 6 },
+      temperature: { min: 1, max: 4 },
+      moisture: { min: 2, max: 6 },
       fertility: { min: 3, max: 5 },
       shelter: { min: 1, max: 3 },
     },
@@ -115,8 +115,8 @@ const HIGHLAND_VALLEY: WorldArchetypeTemplate = {
     {
       role: 'eastern-ridge',
       displayName: 'Eastern Ridge',
-      temperature: { min: 2, max: 5 },
-      moisture: { min: 3, max: 6 },
+      temperature: { min: 1, max: 4 },
+      moisture: { min: 2, max: 6 },
       fertility: { min: 3, max: 5 },
       shelter: { min: 1, max: 3 },
     },

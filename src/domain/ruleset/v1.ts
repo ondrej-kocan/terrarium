@@ -1,7 +1,7 @@
 // All balancing knobs for ruleset version 1.2.0.
 // Every named constant in SIMULATION_RULES.md lives here.
 // Change a value → increment RULESET_VERSION → old saved worlds become incompatible.
-export const RULESET_VERSION = '1.2.0' as const;
+export const RULESET_VERSION = '1.3.0' as const;
 
 export const Ruleset = {
   version: RULESET_VERSION,
@@ -14,7 +14,7 @@ export const Ruleset = {
 
   // ── Habitat suitability ──────────────────────────────────────────────────
   SUITABILITY_PENALTY_PER_GAP: 10,
-  SHELTER_BUFFER_DIVISOR: 3,
+  SHELTER_BUFFER_DIVISOR: 5,
 
   // ── Producer capacity and growth ─────────────────────────────────────────
   PRODUCER_CAPACITY_PER_FERTILITY: 25,
