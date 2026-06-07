@@ -6,7 +6,7 @@ The MVP must answer one question:
 
 > Can a small, deterministic ecosystem produce an outcome that surprises the player while still letting the player understand why it happened?
 
-It is a replayable vertical slice, not a miniature implementation of every long-term Terrarium system.
+It is a replayable vertical slice, not a miniature implementation of every long-term Terrarium system. The MVP runs entirely in memory for a single session. Persistence, save/load, and session-resumption are explicitly deferred until the in-memory loop is validated and fun.
 
 ## Smallest Fun Version
 
@@ -174,7 +174,9 @@ A generated difference belongs in the MVP only if it can alter a decision, causa
 - AI-generated events, names, species, or reports
 - AI naturalist or chat interface
 - Pluggable AI-provider implementation
-- Production-scale persistence or background jobs
+- Any persistent storage (SQLite, Drizzle, or equivalent)
+- Session-resumption, save/load, or world sharing
+- Background jobs or server-side state
 - Rich animation and detailed map rendering
 
 AI remains a possible post-MVP presentation and proposal layer. It must never become the source of truth.

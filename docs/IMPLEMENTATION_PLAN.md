@@ -12,8 +12,8 @@ No implementation should begin by building the full UI or persistence schema. Th
 - Use a narrow catalog of authored templates before adding content breadth.
 - Make invalid worlds impossible to accept.
 - Record causes when changes occur, not afterward.
-- Add persistence after the full loop works in memory.
-- Treat visual polish and AI as post-MVP concerns.
+- The MVP runs entirely in memory. Persistence is explicitly post-MVP.
+- Treat visual polish, persistence, and AI as post-MVP concerns.
 - Do not advance a milestone until its exit criteria are met.
 
 ## Milestone 0 — Resolve Formula-Level Design Decisions
@@ -153,37 +153,18 @@ Expose the validated domain loop as a complete 10–20 minute player experience.
 - The UI cannot bypass domain commands or validations.
 - Players can explain major outcomes after a run.
 - Players observe meaningful differences across archetypes, pressures, seeds, and interventions.
-- The experience meets the MVP success criteria in `MVP_SCOPE.md` closely enough to justify persistence work.
-
-## Milestone 6 — Persistence and MVP Hardening
-
-### Objective
-
-Make experiments durable and prepare the MVP for repeated external testing.
-
-### Work
-
-- Add SQLite and Drizzle adapters.
-- Persist Genesis config, ruleset version, current snapshot, accepted commands, and domain events transactionally.
-- Add load, resume, restart, and replay diagnostics.
-- Add schema migrations and compatibility rules.
-- Expand invariant, scenario, and end-to-end test coverage.
-- Balance templates and rules based on playtest results.
-
-### Exit Criteria
-
-- Worlds can be saved, loaded, and resumed without changing outcomes.
-- Accepted commands, snapshots, and events remain consistent.
-- Known test seeds remain reproducible under their associated ruleset version.
-- No critical invariant, determinism, or explainability defects remain.
+- The experience meets the MVP success criteria in `MVP_SCOPE.md`.
+- Playtests validate the loop is fun enough to justify persistence work.
 
 ## Post-MVP Candidates
 
 Only prioritize these after MVP validation:
 
+- **Persistence** — SQLite and Drizzle adapters, save/load, session-resumption, schema migrations, and ruleset-version compatibility. This is the highest-priority post-MVP item once the in-memory loop is validated and fun.
 - Additional archetypes, pressures, species archetypes, and traits
 - Additional scientific interventions
-- Deeper food webs and ecological relationships
+- Deeper food webs and multi-diet ecological relationships
+- Richer predator catch mechanics (body size, mobility, shelter)
 - Richer world and lineage visualization
 - Longer-term goals and endgame
 - Sharing experiment seeds or histories
