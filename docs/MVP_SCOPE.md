@@ -22,12 +22,12 @@ A complete session should take approximately 10–20 minutes.
    - Accept or enter a visible seed.
 2. **Discover the generated world**
    - Inspect three connected regions and their environmental conditions.
-   - Discover approximately five generated starting species and their ecological roles.
+   - Discover exactly five generated starting species—two producers, two herbivores, and one predator—and their ecological roles.
 3. **Advance one era at a time**
    - Review up to three major developments after each era.
    - Inspect populations, traits, relationships, and causal explanations.
 4. **Optionally intervene once**
-   - Relocate part of one population to another compatible region.
+   - Relocate part of one population to a connected, legally reachable region.
 5. **Review the outcome**
    - Inspect surviving and extinct species, lineage changes, and major causal chains.
    - Restart with a different configuration or seed.
@@ -66,7 +66,7 @@ The seed selects values inside those constraints. Two worlds of the same archety
 
 ### Archetype-Based Species Generation
 
-Each starting ecosystem contains approximately five species:
+Each starting ecosystem contains exactly five species:
 
 - Two producers
 - Two herbivores
@@ -99,7 +99,7 @@ Each era resolves an explicit pipeline:
 10. Check for extinction.
 11. Record structured causal events.
 
-The exact formulas remain design questions to settle during the simulation-spike milestone. The pipeline order and responsibilities are MVP decisions.
+Concrete first-pass formulas, thresholds, balancing knobs, and risks are defined in [Simulation Rules](SIMULATION_RULES.md). The pipeline order and responsibilities are MVP decisions.
 
 ### Evolution and Ecology
 
@@ -119,9 +119,9 @@ The MVP includes:
 
 The only MVP intervention is:
 
-> Relocate part of one extant species population to a connected, compatible region.
+> Relocate part of one extant species population to a connected, legally reachable region.
 
-The simulation engine validates the command. The player cannot directly edit populations, traits, geography, or environmental values.
+Environmental compatibility is not required. The simulation engine validates legal reachability, then normal simulation rules determine whether the relocated population survives or succeeds. The player cannot directly edit populations, traits, geography, or environmental values.
 
 ### Explainability
 

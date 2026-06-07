@@ -17,7 +17,7 @@ The player is a naturalist, not a god. The simulation owns the world, and every 
 
 **Design complete enough to begin the first implementation milestone. No application code exists yet.**
 
-The MVP is intentionally constrained to three generated regions, approximately five archetype-generated starting species, one persistent environmental pressure, and one intervention type. Generation and simulation are deterministic for a given seed and command history.
+The MVP is intentionally constrained to three generated regions, exactly five archetype-generated starting species, one persistent environmental pressure, and one intervention type. Generation and simulation are deterministic for a given seed and command history.
 
 ## Project Documentation
 
@@ -26,6 +26,7 @@ The MVP is intentionally constrained to three generated regions, approximately f
 - [Architecture](docs/ARCHITECTURE.md) — system boundaries, command flow, determinism, and proposed repository structure.
 - [Domain Model](docs/DOMAIN_MODEL.md) — core entities, value objects, commands, events, and invariants.
 - [Implementation Plan](docs/IMPLEMENTATION_PLAN.md) — milestones, sequencing, validation strategy, and definition of done.
+- [Simulation Rules](docs/SIMULATION_RULES.md) — concrete MVP formulas, thresholds, balancing knobs, examples, and risks.
 - [Open Questions](OPEN_QUESTIONS.md) — unresolved design decisions and the decisions already made.
 
 ## Product Principle
