@@ -115,17 +115,20 @@ function EraControls({
   archetypeId,
   pressureId,
   era,
-  relocateParam,
+  relocation,
 }: {
   seed: string;
   archetypeId: string;
   pressureId: string;
   era: number;
-  relocateParam?: string;
+  relocation?: { speciesId: string; fromRegionId: string; toRegionId: string; amount: number };
 }) {
   const base = `?seed=${encodeURIComponent(seed)}&archetype=${archetypeId}&pressure=${pressureId}`;
-  const prevUrl = era > 0 ? `${base}&eras=${era - 1}${relocateParam ? `&relocate=${encodeURIComponent(relocateParam)}` : ''}` : null;
-  const nextUrl = `${base}&eras=${era + 1}${relocateParam ? `&relocate=${encodeURIComponent(relocateParam)}` : ''}`;
+  const rel = relocation
+    ? `&rel-species=${encodeURIComponent(relocation.speciesId)}&rel-from=${encodeURIComponent(relocation.fromRegionId)}&rel-to=${encodeURIComponent(relocation.toRegionId)}&rel-amount=${relocation.amount}`
+    : '';
+  const prevUrl = era > 0 ? `${base}&eras=${era - 1}${rel}` : null;
+  const nextUrl = `${base}&eras=${era + 1}${rel}`;
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '1rem 0' }}>
@@ -345,25 +348,19 @@ function RelocationForm({
   seed,
   archetypeId,
   pressureId,
-  currentRelocateParam,
+  relocation,
 }: {
   world: World;
   seed: string;
   archetypeId: string;
   pressureId: string;
-  currentRelocateParam?: string;
+  relocation?: { speciesId: string; fromRegionId: string; toRegionId: string; amount: number };
 }) {
-  // If intervention already used, show read-only info
   if (world.interventionUsed) {
     return (
       <section style={{ marginTop: '1.5rem' }}>
         <h3 style={{ fontSize: '1em' }}>Population Relocation</h3>
-        <p style={{ fontSize: '0.9em', color: '#888' }}>
-          Intervention already used this world.
-          {currentRelocateParam && (
-            <> (Applied: {currentRelocateParam})</>
-          )}
-        </p>
+        <p style={{ fontSize: '0.9em', color: '#888' }}>Intervention already used this world.</p>
       </section>
     );
   }
@@ -372,17 +369,12 @@ function RelocationForm({
     s => s.status === 'extant' && Object.values(s.populations as Record<string, number>).some(p => (p ?? 0) > 0),
   );
 
-  if (extantSpecies.length === 0) {
-    return null;
-  }
-
-  const base = `?seed=${encodeURIComponent(seed)}&archetype=${archetypeId}&pressure=${pressureId}&eras=${world.era}`;
+  if (extantSpecies.length === 0) return null;
 
   return (
     <section style={{ marginTop: '1.5rem' }}>
       <h3 style={{ fontSize: '1em' }}>Population Relocation (one-time intervention)</h3>
-      <form method="get" action="">
-        {/* Preserve existing URL params */}
+      <form method="get">
         <input type="hidden" name="seed" value={seed} />
         <input type="hidden" name="archetype" value={archetypeId} />
         <input type="hidden" name="pressure" value={pressureId} />
@@ -392,7 +384,7 @@ function RelocationForm({
             <tr>
               <td><label htmlFor="rel-species">Species</label></td>
               <td>
-                <select id="rel-species" name="rel-species" style={{ minWidth: '12rem' }}>
+                <select id="rel-species" name="rel-species" defaultValue={relocation?.speciesId} style={{ minWidth: '12rem' }}>
                   {extantSpecies.map(sp => (
                     <option key={sp.id as string} value={sp.id as string}>{sp.name}</option>
                   ))}
@@ -402,7 +394,7 @@ function RelocationForm({
             <tr>
               <td><label htmlFor="rel-from">From region</label></td>
               <td>
-                <select id="rel-from" name="rel-from" style={{ minWidth: '12rem' }}>
+                <select id="rel-from" name="rel-from" defaultValue={relocation?.fromRegionId} style={{ minWidth: '12rem' }}>
                   {world.regions.map(r => (
                     <option key={r.id as string} value={r.id as string}>{r.name}</option>
                   ))}
@@ -412,7 +404,7 @@ function RelocationForm({
             <tr>
               <td><label htmlFor="rel-to">To region</label></td>
               <td>
-                <select id="rel-to" name="rel-to" style={{ minWidth: '12rem' }}>
+                <select id="rel-to" name="rel-to" defaultValue={relocation?.toRegionId} style={{ minWidth: '12rem' }}>
                   {world.regions.map(r => (
                     <option key={r.id as string} value={r.id as string}>{r.name}</option>
                   ))}
@@ -427,28 +419,17 @@ function RelocationForm({
                   name="rel-amount"
                   type="number"
                   min="1"
-                  defaultValue="1"
+                  defaultValue={relocation?.amount ?? 1}
                   style={{ width: '6rem' }}
                 />
               </td>
             </tr>
             <tr>
               <td />
-              <td>
-                <button
-                  type="submit"
-                  formAction={`${base}&relocate=SPECIES|FROM|TO|AMOUNT`}
-                >
-                  Relocate (submit form to apply)
-                </button>
-              </td>
+              <td><button type="submit">Relocate population</button></td>
             </tr>
           </tbody>
         </table>
-        <p style={{ fontSize: '0.8em', color: '#888' }}>
-          To relocate: build the URL manually with{' '}
-          <code>?relocate=SPECIES_ID|FROM_REGION_ID|TO_REGION_ID|AMOUNT</code>
-        </p>
       </form>
     </section>
   );
@@ -460,14 +441,14 @@ function WorldInspector({
   archetypeId,
   pressureId,
   eraEvents,
-  relocateParam,
+  relocation,
 }: {
   world: World;
   seed: string;
   archetypeId: string;
   pressureId: string;
   eraEvents: Map<number, DomainEvent[]>;
-  relocateParam?: string;
+  relocation?: { speciesId: string; fromRegionId: string; toRegionId: string; amount: number };
 }) {
   const extant = world.species.filter(s => s.status === 'extant');
   const extinct = world.species.filter(s => s.status === 'extinct');
@@ -495,7 +476,7 @@ function WorldInspector({
         {extant.length} extant species · {world.regions.length} regions
       </p>
 
-      <EraControls seed={seed} archetypeId={archetypeId} pressureId={pressureId} era={world.era} relocateParam={relocateParam} />
+      <EraControls seed={seed} archetypeId={archetypeId} pressureId={pressureId} era={world.era} relocation={relocation} />
 
       <h3 style={{ fontSize: '0.95em', marginBottom: '0.25rem' }}>Era {world.era} events</h3>
       <EraEventLog events={currentEvents} world={world} />
@@ -508,10 +489,10 @@ function WorldInspector({
         seed={seed}
         archetypeId={archetypeId}
         pressureId={pressureId}
-        currentRelocateParam={relocateParam}
+        relocation={relocation}
       />
 
-      <EraControls seed={seed} archetypeId={archetypeId} pressureId={pressureId} era={world.era} relocateParam={relocateParam} />
+      <EraControls seed={seed} archetypeId={archetypeId} pressureId={pressureId} era={world.era} relocation={relocation} />
     </article>
   );
 }
@@ -520,24 +501,15 @@ function WorldInspector({
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-function parseRelocateParam(
-  raw: string,
-  world: World,
-): RelocatePopulationCommand | null {
-  const parts = raw.split('|');
-  if (parts.length !== 4) return null;
-  const [speciesIdStr, fromRegionIdStr, toRegionIdStr, amountStr] = parts as [string, string, string, string];
-  const amount = parseInt(amountStr, 10);
-  if (!Number.isFinite(amount) || amount < 1) return null;
+type RelocationParams = { speciesId: string; fromRegionId: string; toRegionId: string; amount: number };
 
-  return {
-    type: 'RelocatePopulation',
-    worldId: world.id,
-    speciesId: speciesIdStr as ReturnType<typeof makeWorldId>,
-    fromRegionId: fromRegionIdStr as ReturnType<typeof makeWorldId>,
-    toRegionId: toRegionIdStr as ReturnType<typeof makeWorldId>,
-    amount,
-  } as unknown as RelocatePopulationCommand;
+function parseRelocationParams(params: Record<string, string | string[] | undefined>): RelocationParams | undefined {
+  const speciesId = typeof params['rel-species'] === 'string' ? params['rel-species'] : undefined;
+  const fromRegionId = typeof params['rel-from'] === 'string' ? params['rel-from'] : undefined;
+  const toRegionId = typeof params['rel-to'] === 'string' ? params['rel-to'] : undefined;
+  const amountRaw = typeof params['rel-amount'] === 'string' ? parseInt(params['rel-amount'], 10) : NaN;
+  if (!speciesId || !fromRegionId || !toRegionId || !Number.isFinite(amountRaw) || amountRaw < 1) return undefined;
+  return { speciesId, fromRegionId, toRegionId, amount: amountRaw };
 }
 
 export default async function Home({ searchParams }: { searchParams: SearchParams }) {
@@ -547,7 +519,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
   const pressureId = typeof params.pressure === 'string' ? params.pressure : '';
   const erasParam = typeof params.eras === 'string' ? parseInt(params.eras, 10) : 0;
   const targetEra = Number.isFinite(erasParam) ? Math.max(0, erasParam) : 0;
-  const relocateParam = typeof params.relocate === 'string' ? params.relocate : undefined;
+  const relocation = parseRelocationParams(params);
 
   const current: Partial<GenesisConfig> = {
     seed: seed || undefined,
@@ -570,16 +542,22 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
         eraEvents.set(era + 1, [...result.events]);
       }
       // Apply relocation at current era if present and not yet used
-      if (relocateParam && world && !world.interventionUsed) {
-        const command = parseRelocateParam(relocateParam, world);
-        if (command) {
-          const relocResult = handleRelocatePopulation(command, world);
-          if (relocResult.success) {
-            world = relocResult.world;
-            // Add relocation events to current era's events
-            const currentEraEvents = eraEvents.get(world.era) ?? [];
-            eraEvents.set(world.era, [...currentEraEvents, ...relocResult.events]);
-          }
+      if (relocation && world && !world.interventionUsed) {
+        const command: RelocatePopulationCommand = {
+          type: 'RelocatePopulation',
+          worldId: world.id,
+          speciesId: relocation.speciesId as ReturnType<typeof makeWorldId>,
+          fromRegionId: relocation.fromRegionId as ReturnType<typeof makeWorldId>,
+          toRegionId: relocation.toRegionId as ReturnType<typeof makeWorldId>,
+          amount: relocation.amount,
+        } as unknown as RelocatePopulationCommand;
+        const relocResult = handleRelocatePopulation(command, world);
+        if (relocResult.success) {
+          world = relocResult.world;
+          const currentEraEvents = eraEvents.get(world.era) ?? [];
+          eraEvents.set(world.era, [...currentEraEvents, ...relocResult.events]);
+        } else {
+          errorMessage = `Relocation failed: ${relocResult.reasons.join(', ')}`;
         }
       }
     } catch (err) {
@@ -603,7 +581,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
           archetypeId={archetypeId}
           pressureId={pressureId}
           eraEvents={eraEvents}
-          relocateParam={relocateParam}
+          relocation={relocation}
         />
       )}
 
