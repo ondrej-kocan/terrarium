@@ -1,4 +1,6 @@
 import type { World } from '@/domain/world/types';
+import { eventId } from '@/domain/world/types';
+import type { DomainEvent } from '@/domain/events/types';
 import { Ruleset } from '@/domain/ruleset/v1';
 
 /**
@@ -8,8 +10,9 @@ import { Ruleset } from '@/domain/ruleset/v1';
 export function resolveExtinction(
   world: World,
   nextEra: number,
-): { world: World; extinctions: string[] } {
+): { world: World; extinctions: string[]; events: DomainEvent[] } {
   const extinctions: string[] = [];
+  const extinctSpecies: typeof world.species[0][] = [];
 
   const updatedSpecies = world.species.map(sp => {
     if (sp.status !== 'extant') return sp;
@@ -20,6 +23,7 @@ export function resolveExtinction(
 
     if (totalPop < Ruleset.MINIMUM_VIABLE_POPULATION) {
       extinctions.push(sp.id as string);
+      extinctSpecies.push(sp);
       return {
         ...sp,
         status: 'extinct' as const,
@@ -31,5 +35,15 @@ export function resolveExtinction(
     return sp;
   });
 
-  return { world: { ...world, species: updatedSpecies }, extinctions };
+  const events: DomainEvent[] = extinctSpecies.map(sp => ({
+    id: eventId(`${nextEra}:species_extinct:${sp.id as string}`),
+    type: 'species_extinct' as const,
+    era: nextEra,
+    subjectIds: { worldId: world.id, regionIds: [], speciesIds: [sp.id] },
+    changes: { status: { before: 'extant', after: 'extinct' } },
+    causes: [{ type: 'resource_shortage' as const, description: `${sp.name} population fell below minimum viable threshold` }],
+    contributingEventIds: [],
+  }));
+
+  return { world: { ...world, species: updatedSpecies }, extinctions, events };
 }

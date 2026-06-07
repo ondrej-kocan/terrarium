@@ -1,4 +1,6 @@
 import type { Traits, World } from '@/domain/world/types';
+import { eventId } from '@/domain/world/types';
+import type { DomainEvent } from '@/domain/events/types';
 import { Ruleset } from '@/domain/ruleset/v1';
 import { habitatSuitability, foodDemandPerUnit, clamp } from './formulas';
 import type { FulfillmentMap } from './consumption';
@@ -16,6 +18,7 @@ export function resolveAdaptation(
 ): {
   world: World;
   adaptations: Array<{ speciesId: string; oldTraits: Traits; newTraits: Traits }>;
+  events: DomainEvent[];
 } {
   const adaptations: Array<{ speciesId: string; oldTraits: Traits; newTraits: Traits }> = [];
 
@@ -150,7 +153,21 @@ export function resolveAdaptation(
     return { ...sp, traits: best.traits, lastAdaptationEra: nextEra };
   });
 
-  return { world: { ...world, species: updatedSpecies }, adaptations };
+  // Build adaptation events
+  const events: DomainEvent[] = adaptations.map(({ speciesId, oldTraits, newTraits }) => {
+    const sp = world.species.find(s => (s.id as string) === speciesId)!;
+    return {
+      id: eventId(`${nextEra}:species_adapted:${speciesId}`),
+      type: 'species_adapted' as const,
+      era: nextEra,
+      subjectIds: { worldId: world.id, regionIds: [], speciesIds: [sp.id] },
+      changes: { traits: { before: oldTraits, after: newTraits } },
+      causes: [{ type: 'habitat_mismatch' as const, description: 'Species adapted traits to improve habitat suitability' }],
+      contributingEventIds: [],
+    };
+  });
+
+  return { world: { ...world, species: updatedSpecies }, adaptations, events };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
