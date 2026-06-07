@@ -258,6 +258,7 @@ function RegionsTable({ world }: { world: World }) {
   return (
     <section>
       <h3 style={{ fontSize: '1em', marginTop: '1.5rem' }}>Regions</h3>
+      <div style={{ overflowX: 'auto' }}>
       <table style={{ borderCollapse: 'collapse', width: '100%' }}>
         <thead>
           <tr>
@@ -285,6 +286,7 @@ function RegionsTable({ world }: { world: World }) {
           ))}
         </tbody>
       </table>
+      </div>
     </section>
   );
 }
@@ -299,17 +301,17 @@ function SpeciesTable({ world }: { world: World }) {
   return (
     <section>
       <h3 style={{ fontSize: '1em', marginTop: '1.5rem' }}>Species</h3>
-      <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+      <div style={{ overflowX: 'auto' }}>
+      <table style={{ borderCollapse: 'collapse' }}>
         <thead>
           <tr>
             {[
               'Name', 'Role', 'Status',
               'Body', 'Mob', 'Cold', 'Drought',
-              'Diet', 'Total pop',
-              ...world.regions.map(r => `${r.name} suit.`),
+              'Diet',
               ...world.regions.map(r => r.name),
             ].map(h => (
-              <th key={h} style={{ textAlign: 'left', padding: '4px 8px', borderBottom: '1px solid #ccc', fontSize: '0.8em', color: '#555' }}>{h}</th>
+              <th key={h} style={{ textAlign: 'left', padding: '4px 8px', borderBottom: '1px solid #ccc', fontSize: '0.8em', color: '#555', whiteSpace: 'nowrap' }}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -318,7 +320,6 @@ function SpeciesTable({ world }: { world: World }) {
             const extinct = sp.status === 'extinct';
             const adapted = traitsChanged(sp.traits, sp.originTraits);
             const isChild = sp.parentSpeciesId !== null;
-            const pop = totalPop(sp);
 
             const rowStyle = {
               opacity: extinct ? 0.4 : 1,
@@ -332,12 +333,12 @@ function SpeciesTable({ world }: { world: World }) {
 
             return (
               <tr key={sp.id as string} style={rowStyle}>
-                <td style={{ padding: '4px 8px' }}>
+                <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>
                   <strong>{sp.name}</strong>
                   {isChild && <span style={{ fontSize: '0.7em', color: '#090', marginLeft: '4px' }}>✦new</span>}
                 </td>
                 <td style={{ padding: '4px 8px', fontSize: '0.85em', color: '#555' }}>{sp.trophicRole}</td>
-                <td style={{ padding: '4px 8px', color: extinct ? '#c00' : '#090', fontSize: '0.85em' }}>
+                <td style={{ padding: '4px 8px', color: extinct ? '#c00' : '#090', fontSize: '0.85em', whiteSpace: 'nowrap' }}>
                   {extinct ? `✗ era ${sp.extinctionEra}` : '✓'}
                 </td>
                 <td style={{ padding: '4px 8px', textAlign: 'center', color: adapted && sp.traits.bodySize !== sp.originTraits.bodySize ? '#00c' : undefined }}>
@@ -352,28 +353,27 @@ function SpeciesTable({ world }: { world: World }) {
                 <td style={{ padding: '4px 8px', textAlign: 'center', color: adapted && sp.traits.droughtTolerance !== sp.originTraits.droughtTolerance ? '#00c' : undefined }}>
                   {traitDelta(sp.traits.droughtTolerance, sp.originTraits.droughtTolerance)}
                 </td>
-                <td style={{ padding: '4px 8px', fontSize: '0.8em', color: '#555' }}>{diet || '—'}</td>
-                <td style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 'bold' }}>{pop}</td>
+                <td style={{ padding: '4px 8px', fontSize: '0.8em', color: '#555', whiteSpace: 'nowrap' }}>{diet || '—'}</td>
                 {world.regions.map(r => {
                   const s = suitsForRegion(sp, r);
+                  const regionPop = sp.populations[r.id] ?? 0;
                   return (
-                    <td key={`suit-${r.id}`} style={{ padding: '4px 8px', textAlign: 'center', fontSize: '0.8em', color: suitabilityColor(s) }}>
-                      {s}%
+                    <td key={`region-${r.id}`} style={{ padding: '4px 8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontWeight: regionPop > 0 ? 'bold' : undefined }}>{regionPop}</span>
+                      {' '}
+                      <span style={{ fontSize: '0.8em', color: suitabilityColor(s) }}>({s}%)</span>
                     </td>
                   );
                 })}
-                {world.regions.map(r => (
-                  <td key={`pop-${r.id}`} style={{ padding: '4px 8px', textAlign: 'center' }}>
-                    {sp.populations[r.id] ?? 0}
-                  </td>
-                ))}
               </tr>
             );
           })}
         </tbody>
       </table>
+      </div>
       <p style={{ fontSize: '0.75em', color: '#888', marginTop: '0.4rem' }}>
-        Blue = adapted from origin · ✦new = speciated this run · faded = extinct · Body/Mob/Cold/Drought traits (0–10)
+        Each region column shows <strong>population (suitability%)</strong> ·
+        Blue trait = adapted · ✦new = speciated · faded = extinct · Body/Mob/Cold/Drought (0–10)
       </p>
     </section>
   );
