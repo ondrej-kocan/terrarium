@@ -121,11 +121,11 @@ function EraControls({
   archetypeId: string;
   pressureId: string;
   era: number;
-  relocation?: { speciesId: string; fromRegionId: string; toRegionId: string; amount: number };
+  relocation?: { speciesId: string; fromRegionId: string; toRegionId: string; amount: number; era: number };
 }) {
   const base = `?seed=${encodeURIComponent(seed)}&archetype=${archetypeId}&pressure=${pressureId}`;
   const rel = relocation
-    ? `&rel-species=${encodeURIComponent(relocation.speciesId)}&rel-from=${encodeURIComponent(relocation.fromRegionId)}&rel-to=${encodeURIComponent(relocation.toRegionId)}&rel-amount=${relocation.amount}`
+    ? `&rel-species=${encodeURIComponent(relocation.speciesId)}&rel-from=${encodeURIComponent(relocation.fromRegionId)}&rel-to=${encodeURIComponent(relocation.toRegionId)}&rel-amount=${relocation.amount}&rel-era=${relocation.era}`
     : '';
   const prevUrl = era > 0 ? `${base}&eras=${era - 1}${rel}` : null;
   const nextUrl = `${base}&eras=${era + 1}${rel}`;
@@ -354,7 +354,7 @@ function RelocationForm({
   seed: string;
   archetypeId: string;
   pressureId: string;
-  relocation?: { speciesId: string; fromRegionId: string; toRegionId: string; amount: number };
+  relocation?: { speciesId: string; fromRegionId: string; toRegionId: string; amount: number; era: number };
 }) {
   if (world.interventionUsed) {
     return (
@@ -379,6 +379,7 @@ function RelocationForm({
         <input type="hidden" name="archetype" value={archetypeId} />
         <input type="hidden" name="pressure" value={pressureId} />
         <input type="hidden" name="eras" value={world.era} />
+        <input type="hidden" name="rel-era" value={world.era} />
         <table>
           <tbody>
             <tr>
@@ -448,7 +449,7 @@ function WorldInspector({
   archetypeId: string;
   pressureId: string;
   eraEvents: Map<number, DomainEvent[]>;
-  relocation?: { speciesId: string; fromRegionId: string; toRegionId: string; amount: number };
+  relocation?: { speciesId: string; fromRegionId: string; toRegionId: string; amount: number; era: number };
 }) {
   const extant = world.species.filter(s => s.status === 'extant');
   const extinct = world.species.filter(s => s.status === 'extinct');
@@ -501,15 +502,17 @@ function WorldInspector({
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-type RelocationParams = { speciesId: string; fromRegionId: string; toRegionId: string; amount: number };
+type RelocationParams = { speciesId: string; fromRegionId: string; toRegionId: string; amount: number; era: number };
 
 function parseRelocationParams(params: Record<string, string | string[] | undefined>): RelocationParams | undefined {
   const speciesId = typeof params['rel-species'] === 'string' ? params['rel-species'] : undefined;
   const fromRegionId = typeof params['rel-from'] === 'string' ? params['rel-from'] : undefined;
   const toRegionId = typeof params['rel-to'] === 'string' ? params['rel-to'] : undefined;
   const amountRaw = typeof params['rel-amount'] === 'string' ? parseInt(params['rel-amount'], 10) : NaN;
+  const eraRaw = typeof params['rel-era'] === 'string' ? parseInt(params['rel-era'], 10) : NaN;
   if (!speciesId || !fromRegionId || !toRegionId || !Number.isFinite(amountRaw) || amountRaw < 1) return undefined;
-  return { speciesId, fromRegionId, toRegionId, amount: amountRaw };
+  if (!Number.isFinite(eraRaw) || eraRaw < 0) return undefined;
+  return { speciesId, fromRegionId, toRegionId, amount: amountRaw, era: eraRaw };
 }
 
 export default async function Home({ searchParams }: { searchParams: SearchParams }) {
@@ -536,29 +539,36 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
   if (canGenerate) {
     try {
       world = generate({ seed, worldArchetypeId: archetypeId, environmentalPressureId: pressureId });
-      for (let era = 0; era < targetEra; era++) {
-        const result = advanceEra(world);
-        world = result.world;
-        eraEvents.set(era + 1, [...result.events]);
-      }
-      // Apply relocation at current era if present and not yet used
-      if (relocation && world && !world.interventionUsed) {
+
+      const applyRelocation = (w: World): World => {
+        if (!relocation || w.interventionUsed || w.era !== relocation.era) return w;
         const command: RelocatePopulationCommand = {
           type: 'RelocatePopulation',
-          worldId: world.id,
+          worldId: w.id,
           speciesId: relocation.speciesId as ReturnType<typeof makeWorldId>,
           fromRegionId: relocation.fromRegionId as ReturnType<typeof makeWorldId>,
           toRegionId: relocation.toRegionId as ReturnType<typeof makeWorldId>,
           amount: relocation.amount,
         } as unknown as RelocatePopulationCommand;
-        const relocResult = handleRelocatePopulation(command, world);
-        if (relocResult.success) {
-          world = relocResult.world;
-          const currentEraEvents = eraEvents.get(world.era) ?? [];
-          eraEvents.set(world.era, [...currentEraEvents, ...relocResult.events]);
-        } else {
-          errorMessage = `Relocation failed: ${relocResult.reasons.join(', ')}`;
+        const result = handleRelocatePopulation(command, w);
+        if (result.success) {
+          const existing = eraEvents.get(w.era) ?? [];
+          eraEvents.set(w.era, [...existing, ...result.events]);
+          return result.world;
         }
+        errorMessage = `Relocation failed: ${result.reasons.join(', ')}`;
+        return w;
+      };
+
+      // Apply relocation at era 0 if that's when it was issued
+      world = applyRelocation(world);
+
+      for (let era = 0; era < targetEra; era++) {
+        const result = advanceEra(world);
+        world = result.world;
+        eraEvents.set(era + 1, [...result.events]);
+        // Apply relocation immediately after reaching the era it was issued at
+        world = applyRelocation(world);
       }
     } catch (err) {
       errorMessage = err instanceof Error ? err.message : String(err);
