@@ -35,8 +35,8 @@ Domain Core
   └── structured events
   │
   ▼
-Persistence Adapter
-  └── SQLite via Drizzle (after the in-memory vertical slice)
+Persistence Adapter (post-MVP)
+  └── SQLite via Drizzle — deferred until the in-memory loop is validated and fun
 ```
 
 The UI displays state and submits commands. It does not contain generation formulas, simulation rules, or direct state mutations.
@@ -92,7 +92,7 @@ Reporting can read but cannot change the world. It must not invent causes absent
 
 Stores world snapshots, commands, and events. Persistence is an adapter around the domain rather than part of simulation logic.
 
-The first vertical slice may run entirely in memory. SQLite and Drizzle should be introduced only after generation and era advancement work end to end.
+**The MVP runs entirely in memory.** SQLite and Drizzle are explicitly post-MVP and should only be introduced after the in-memory loop is validated and fun. The persistence interface should be defined early so the domain does not couple to in-memory storage, but the adapter itself is not built until Milestone 5 exit criteria are met.
 
 ## Command Flow
 
@@ -216,9 +216,9 @@ World archetypes, pressures, species archetypes, and naming vocabularies are ver
 
 Templates define constraints and ranges; they do not contain arbitrary executable scripts. Simulation behavior belongs in named rule implementations so it can be tested and versioned.
 
-## Persistence Approach
+## Persistence Approach (Post-MVP)
 
-Persistence should store enough information to inspect and reproduce a run:
+Persistence is deferred until after Milestone 5. When introduced, it should store enough information to inspect and reproduce a run:
 
 - World identity and ruleset version
 - Genesis configuration
@@ -226,7 +226,7 @@ Persistence should store enough information to inspect and reproduce a run:
 - Ordered accepted commands
 - Structured domain events
 
-For the MVP, snapshot-per-era plus command/event history is simpler than rebuilding every UI request by replay. Replay remains a testing and debugging capability.
+Snapshot-per-era plus command/event history is simpler than rebuilding every UI request by replay. Replay remains a testing and debugging capability.
 
 A single transaction should persist the accepted command, resulting snapshot, and emitted events.
 
@@ -311,6 +311,7 @@ After the domain vertical slice is stable, cover the critical player path from G
 
 Do not introduce these until a demonstrated need exists:
 
+- Persistence adapters (SQLite, Drizzle) — post-MVP, after Milestone 5
 - Separate services or event brokers
 - Background workers
 - Real-time synchronization

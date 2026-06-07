@@ -119,6 +119,8 @@ Each species template defines inclusive preferred ranges for temperature and moi
 | `SPECIATION_ISOLATION_ERAS` | 4 eras | Required continuous isolation |
 | `SPECIATION_DIVERGENCE` | 4 points | Required candidate divergence |
 | `SPECIATION_MIN_POPULATION` | 20 | Required isolated population |
+| `PREDATOR_CATCH_PERCENT` | 50% | Fixed prey accessibility rate (MVP) |
+| `MIGRATION_COOLDOWN_ERAS` | 1 era | Minimum eras between migrations for the same population |
 
 ## Generation Handoff and Starting Populations
 
@@ -193,48 +195,39 @@ Use the shared-quantity allocation convention. A producer's post-growth populati
 
 This is the MVP's producer competition rule: fertile regions support more producers, and better-suited producers win more of the limited capacity.
 
+**Balancing hotspot:** The claim formula multiplies unconstrained target by suitability, which strongly rewards already-fit producers. Example B in Section 14 shows a poorly-suited producer falling from 40 to 26 in a single era. If early runs show one producer being eliminated in the first two eras before pressure becomes meaningful, the simplest fix is equal capacity shares before suitability weighting (Section 17, simplification 4).
+
 ## 4. Herbivore Consumption and Competition
 
-Each producer population provides one herbivore food unit per population unit. A herbivore may consume only species listed in its generated diet.
+Each producer population provides one herbivore food unit per population unit. Each herbivore has exactly one primary food species for the MVP.
 
 For each herbivore population:
 
 `herbivoreDemand = population × foodDemandPerPopulation`
 
-Resolve shared food species independently. Herbivores claim edible producer food in proportion to their unmet demand. Use the shared-quantity allocation convention when claims exceed supply.
+Where multiple herbivores eat the same producer, they claim food in proportion to their unmet demand. Use the shared-quantity allocation convention when claims exceed supply.
 
 `herbivoreFoodFulfillment = clamp(0, 100, consumedFood × 100 / herbivoreDemand)`
 
-Every consumed food unit removes one producer population unit. Apply all producer losses together after allocation. Competition is visible whenever an eligible food pool cannot satisfy all claims.
+Every consumed food unit removes one producer population unit. Apply all producer losses together after allocation. Competition is visible whenever a food pool cannot satisfy all claims.
 
-A herbivore with multiple foods claims them in generated diet-ID order, but no herbivore may consume above its total demand. Diet order is stable ruleset data and therefore deterministic.
+This keeps causal reports direct: "Ridge Hopper declined because Sun Grass collapsed." Multi-food herbivore diets are a post-MVP extension.
 
 ## 5. Predator Consumption and Competition
 
-Each herbivore population provides potential predator food, but catch success limits how much is accessible.
+Predation is not the central player-visible fantasy for the MVP; migration, adaptation, and speciation are. The catch formula is therefore simplified for now.
 
 For each predator/prey pair in a region:
 
-`catchScore = PREDATOR_CATCH_BASE + (predatorBodySize - preyBodySize) × BODY_CATCH_EFFECT + (predatorMobility - preyMobility) × MOBILITY_CATCH_EFFECT - shelter × SHELTER_ESCAPE_EFFECT`
+`accessiblePrey = preyPopulation × PREDATOR_CATCH_PERCENT / 100`
 
-`catchPercent = clamp(MIN_CATCH_PERCENT, MAX_CATCH_PERCENT, catchScore)`
-
-`accessiblePrey = preyPopulation × catchPercent / 100`
-
-First-pass knobs:
-
-- `PREDATOR_CATCH_BASE = 50`
-- `BODY_CATCH_EFFECT = 5`
-- `MOBILITY_CATCH_EFFECT = 5`
-- `SHELTER_ESCAPE_EFFECT = 3`
-- `MIN_CATCH_PERCENT = 10`
-- `MAX_CATCH_PERCENT = 90`
+First-pass knob: `PREDATOR_CATCH_PERCENT = 50`
 
 Predator demand and competition then use the herbivore consumption rule, except accessible prey replaces total food supply. Each consumed food unit removes one herbivore population unit.
 
 `predatorFoodFulfillment = clamp(0, 100, consumedFood × 100 / predatorDemand)`
 
-This gives body size and mobility an understandable benefit while shelter and prey traits provide counterplay.
+Body size and mobility still affect the predator through food demand and migration scoring. A richer catch formula incorporating body size, mobility, and shelter is preserved in Section 17 and is the first post-MVP predation upgrade once predator mechanics need to earn their complexity.
 
 ## 6. Reproduction and Mortality
 
@@ -297,7 +290,13 @@ First-pass knobs:
 
 Move the rounded migrating amount, but always leave at least one population unit in the origin. Migration itself does not guarantee survival in the destination.
 
-Player relocation is resolved between eras as a command, not as this migration stage. It obeys connectivity and legal-reachability validation but skips destination-score and migration-trigger requirements.
+### Migration Cooldown
+
+A population that migrated in the immediately preceding era may not migrate again this era. This prevents immediate back-and-forth oscillation that would dominate era reports without adding player insight.
+
+First-pass knob: `MIGRATION_COOLDOWN_ERAS = 1`
+
+Player relocation is resolved between eras as a command, not as this migration stage. It obeys connectivity and legal-reachability validation but skips destination-score and migration-trigger requirements. Player relocation does not count against the migration cooldown.
 
 ## 8. Adaptation
 
@@ -342,6 +341,8 @@ Also track a deterministic **candidate trait vector** for the isolated populatio
 `divergence = sum(abs(candidateTrait - parentSpeciesTrait))` across all four traits.
 
 This metadata makes isolation-driven divergence explicit without creating a full population-genetics system.
+
+**Complexity note:** The candidate trait vector introduces per-region metadata alongside species-level traits. If this proves difficult to implement or audit correctly, it may be replaced with the divergence-point approach in Section 17 (simplification 1) without changing the broader speciation mechanic or its thresholds.
 
 ## 10. Speciation
 
@@ -493,13 +494,15 @@ A herbivore has population `20`, body size `4`, and mobility `5`.
 
 At suitability `80`, its births are `20 × 20% × 80% × 50% = 1.6`, rounded to `2`. Starvation mortality contributes `(100 - 50) × 50% = 25%` mortality before baseline, upkeep, and habitat mortality are added.
 
-### Example D: Predator Catch Success
+### Example D: Predator Food Demand and Starvation
 
-A predator has body size `7` and mobility `6`. Its prey has body size `4` and mobility `7` in a region with shelter `5`.
+A predator population of `15` has body size `4` and mobility `5`. Its prey population is `40`.
 
-`catchScore = 50 + (7 - 4) × 5 + (6 - 7) × 5 - 5 × 3 = 45`
+`accessiblePrey = 40 × 50 / 100 = 20`
 
-Catch percent is `45%`. If prey population is `40`, only `18` food units are accessible before predator demand and competition are considered. The predator's larger body helps, but slower mobility and shelter protect the prey.
+Food demand per population is `1 + floor(4/4) + floor(5/5) = 3`, so total demand is `15 × 3 = 45`. With only `20` accessible prey, food fulfillment is `clamp(0, 100, 20 × 100 / 45) = 44%`. The predator consumes all 20 accessible prey units and suffers significant starvation mortality.
+
+The richer catch formula that incorporates body size, mobility, and shelter is preserved in Section 17 as the first post-MVP predation upgrade.
 
 ### Example E: Migration Into an Unsuitable Region
 
@@ -516,30 +519,30 @@ Separately, an isolated regional population has remained isolated for eight eras
 ## 15. Biggest Risks
 
 1. **Population volatility may be too high.** Consumption removes food populations directly, then mortality acts afterward. Food webs could collapse faster than players can understand them. Tune birth rates, food demand, and starvation mortality first.
-2. **Producer capacity allocation may create winner-take-all regions.** Multiplying target by suitability strongly rewards already successful producers. If one producer routinely disappears, soften the claim formula or reserve a small capacity share for each viable producer.
+2. **Producer capacity allocation may create winner-take-all regions.** Multiplying target by suitability strongly rewards already successful producers. If one producer routinely disappears within the first two eras, replace the weighted claim with equal capacity shares as a direct fallback (Section 17, simplification 4). This is the most likely balancing adjustment needed before Milestone 3 validation.
 3. **Speciation may be too rare or too mechanical.** Three-region maps provide few isolation patterns, while the candidate trait vector adds bookkeeping. Named scenario tests must prove that speciation can occur without making it routine.
-4. **Migration may cause oscillation.** Populations can move toward food, consume it, then move back. The minimum-advantage rule helps, but a one-era migration cooldown may be needed if oscillation dominates reports.
+4. **Migration oscillation** is addressed by the one-era cooldown added in Section 7. Monitor whether the minimum-advantage rule and cooldown together are sufficient, or whether a higher `MIGRATION_MIN_ADVANTAGE` is also needed.
 5. **Trait effects are uneven.** Cold and drought tolerance directly improve suitability, while body size and mobility mostly affect food webs and movement. This may make climate tolerances consistently better adaptation choices.
 
 ## 16. Rules Likely Too Complicated for MVP
 
-The following rules are the first candidates to simplify during a paper or spreadsheet spike:
+The following rules are candidates to simplify. Items marked **[simplified]** have already been replaced by the recommendations in Section 17.
 
-- **Isolation candidate trait vectors:** they make divergence concrete but introduce population-local metadata beside species-level traits.
+- **Isolation candidate trait vectors:** they make divergence concrete but introduce population-local metadata beside species-level traits. Explicit escape hatch in Section 9.
 - **Largest-remainder shared allocation:** it is fair and deterministic but more involved than sequential allocation to explain and implement.
-- **Predator catch formula:** it combines five visible factors and may be too much detail for a concise report.
-- **Separate food ordering for multi-food consumers:** stable diet order is deterministic but can create unintuitive preference effects.
+- **Predator catch formula:** **[simplified]** The five-factor score has been replaced by a fixed `50%` rate. The full formula is preserved in Section 17 for post-MVP use.
+- **Separate food ordering for multi-food consumers:** **[simplified]** Each consumer now has one primary food species, so diet ordering is not needed.
 - **Population-weighted adaptation candidate search:** evaluating every legal one-point change is manageable, but explaining why one trait won may require a detailed comparison view.
 
 ## 17. Recommended Simplifications
 
-Use these simplifications only if the baseline rules prove hard to implement, balance, or explain:
+Items marked **[adopted for MVP]** are now the active rules in this document. The remaining items are available if baseline rules prove hard to implement, balance, or explain.
 
-1. **Replace candidate trait vectors with divergence points.** While isolated and stressed, add one divergence point every adaptation interval; at speciation, derive up to four trait changes from the strongest local pressures.
-2. **Give each consumer one MVP food species.** This removes multi-food allocation order and makes competition and causal reports much clearer.
-3. **Replace predator catch score with a fixed `50%` accessible-prey rate.** Keep body size and mobility relevant through demand and migration until richer predation earns its complexity.
-4. **Use equal producer capacity shares before suitability weighting.** This protects coexistence and reduces winner-take-all collapse.
-5. **Add a one-era migration cooldown rather than richer destination memory.** It is a small, visible rule that prevents immediate back-and-forth movement.
+1. **Replace candidate trait vectors with divergence points.** While isolated and stressed, add one divergence point every adaptation interval; at speciation, derive up to four trait changes from the strongest local pressures. See the complexity note in Section 9.
+2. **[Adopted for MVP] Give each consumer one primary food species.** This removes multi-food allocation order and makes competition and causal reports much clearer. See Section 4.
+3. **[Adopted for MVP] Fixed `50%` accessible-prey rate.** Body size and mobility remain relevant through food demand and migration until richer predation earns its complexity. See Section 5. The full catch formula for post-MVP use is: `catchScore = PREDATOR_CATCH_BASE + (predatorBodySize - preyBodySize) × BODY_CATCH_EFFECT + (predatorMobility - preyMobility) × MOBILITY_CATCH_EFFECT - shelter × SHELTER_ESCAPE_EFFECT`, clamped to `[MIN_CATCH_PERCENT, MAX_CATCH_PERCENT]`. First-pass knobs: `PREDATOR_CATCH_BASE = 50`, `BODY_CATCH_EFFECT = 5`, `MOBILITY_CATCH_EFFECT = 5`, `SHELTER_ESCAPE_EFFECT = 3`, `MIN_CATCH_PERCENT = 10`, `MAX_CATCH_PERCENT = 90`.
+4. **Use equal producer capacity shares before suitability weighting.** This protects coexistence and reduces winner-take-all collapse. Reach for this if the hotspot described in Section 3 appears in early runs.
+5. **[Adopted for MVP] One-era migration cooldown.** A small, visible rule that prevents immediate back-and-forth movement. See Section 7.
 
 ## 18. Validation Scenarios Before Production Implementation
 
