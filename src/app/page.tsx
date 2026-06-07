@@ -308,8 +308,8 @@ function SpeciesTable({ world }: { world: World }) {
             {[
               'Name', 'Role', 'Status',
               ...world.regions.map(r => r.name),
-              'Body', 'Mob', 'Cold', 'Drought',
               'Diet',
+              'Body', 'Mob', 'Cold', 'Drought',
             ].map(h => (
               <th key={h} style={{ textAlign: 'left', padding: '4px 8px', borderBottom: '1px solid #ccc', fontSize: '0.8em', color: '#555', whiteSpace: 'nowrap' }}>{h}</th>
             ))}
@@ -354,6 +354,7 @@ function SpeciesTable({ world }: { world: World }) {
                     </td>
                   );
                 })}
+                <td style={{ padding: '4px 8px', fontSize: '0.8em', color: '#555', whiteSpace: 'nowrap' }}>{diet || '—'}</td>
                 <td style={{ padding: '4px 8px', textAlign: 'center', color: adapted && sp.traits.bodySize !== sp.originTraits.bodySize ? '#00c' : undefined }}>
                   {traitDelta(sp.traits.bodySize, sp.originTraits.bodySize)}
                 </td>
@@ -366,7 +367,6 @@ function SpeciesTable({ world }: { world: World }) {
                 <td style={{ padding: '4px 8px', textAlign: 'center', color: adapted && sp.traits.droughtTolerance !== sp.originTraits.droughtTolerance ? '#00c' : undefined }}>
                   {traitDelta(sp.traits.droughtTolerance, sp.originTraits.droughtTolerance)}
                 </td>
-                <td style={{ padding: '4px 8px', fontSize: '0.8em', color: '#555', whiteSpace: 'nowrap' }}>{diet || '—'}</td>
               </tr>
             );
           })}
