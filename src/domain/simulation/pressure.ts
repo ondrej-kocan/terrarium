@@ -1,4 +1,6 @@
 import type { Region, World } from '@/domain/world/types';
+import { eventId } from '@/domain/world/types';
+import type { DomainEvent } from '@/domain/events/types';
 import { Ruleset } from '@/domain/ruleset/v1';
 import { clamp } from './formulas';
 
@@ -9,7 +11,7 @@ import { clamp } from './formulas';
 export function applyPressure(
   world: World,
   nextEra: number,
-): { regions: readonly Region[]; pressureChanged: boolean } {
+): { regions: readonly Region[]; pressureChanged: boolean; events: DomainEvent[] } {
   const pressureId = world.genesisConfig.environmentalPressureId;
 
   switch (pressureId) {
@@ -21,17 +23,55 @@ export function applyPressure(
       return applyExtremeSeasons(world, nextEra);
     default:
       // Unknown pressure: no change
-      return { regions: world.regions, pressureChanged: false };
+      return { regions: world.regions, pressureChanged: false, events: [] };
   }
+}
+
+function buildPressureEvents(
+  world: World,
+  nextEra: number,
+  oldRegions: readonly Region[],
+  newRegions: readonly Region[],
+): DomainEvent[] {
+  const pressureId = world.genesisConfig.environmentalPressureId;
+  const events: DomainEvent[] = [];
+
+  for (let i = 0; i < newRegions.length; i++) {
+    const oldRegion = oldRegions[i]!;
+    const newRegion = newRegions[i]!;
+    const oldConditions = oldRegion.conditions;
+    const newConditions = newRegion.conditions;
+
+    // Only emit if conditions actually changed
+    const changed =
+      oldConditions.temperature !== newConditions.temperature ||
+      oldConditions.moisture !== newConditions.moisture ||
+      oldConditions.fertility !== newConditions.fertility ||
+      oldConditions.shelter !== newConditions.shelter;
+
+    if (changed) {
+      events.push({
+        id: eventId(`${nextEra}:environment_changed:${newRegion.id as string}`),
+        type: 'environment_changed',
+        era: nextEra,
+        subjectIds: { worldId: world.id, regionIds: [newRegion.id], speciesIds: [] },
+        changes: { conditions: { before: oldConditions, after: newConditions } },
+        causes: [{ type: 'environmental_change', description: `${pressureId} pressure altered conditions` }],
+        contributingEventIds: [],
+      });
+    }
+  }
+
+  return events;
 }
 
 function applyIncreasingDrought(
   world: World,
   nextEra: number,
-): { regions: readonly Region[]; pressureChanged: boolean } {
+): { regions: readonly Region[]; pressureChanged: boolean; events: DomainEvent[] } {
   // On every DROUGHT_STEP_INTERVAL eras (nextEra % 2 === 0)
   if (nextEra % Ruleset.DROUGHT_STEP_INTERVAL !== 0) {
-    return { regions: world.regions, pressureChanged: false };
+    return { regions: world.regions, pressureChanged: false, events: [] };
   }
 
   const regions = world.regions.map(region => {
@@ -50,16 +90,17 @@ function applyIncreasingDrought(
     };
   });
 
-  return { regions, pressureChanged: true };
+  const events = buildPressureEvents(world, nextEra, world.regions, regions);
+  return { regions, pressureChanged: true, events };
 }
 
 function applyCoolingClimate(
   world: World,
   nextEra: number,
-): { regions: readonly Region[]; pressureChanged: boolean } {
+): { regions: readonly Region[]; pressureChanged: boolean; events: DomainEvent[] } {
   // On every COOLING_STEP_INTERVAL eras (nextEra % 2 === 0)
   if (nextEra % Ruleset.COOLING_STEP_INTERVAL !== 0) {
-    return { regions: world.regions, pressureChanged: false };
+    return { regions: world.regions, pressureChanged: false, events: [] };
   }
 
   const regions = world.regions.map(region => {
@@ -78,13 +119,14 @@ function applyCoolingClimate(
     };
   });
 
-  return { regions, pressureChanged: true };
+  const events = buildPressureEvents(world, nextEra, world.regions, regions);
+  return { regions, pressureChanged: true, events };
 }
 
 function applyExtremeSeasons(
   world: World,
   nextEra: number,
-): { regions: readonly Region[]; pressureChanged: boolean } {
+): { regions: readonly Region[]; pressureChanged: boolean; events: DomainEvent[] } {
   const isOdd = nextEra % 2 !== 0;
 
   const regions = world.regions.map(region => {
@@ -112,5 +154,6 @@ function applyExtremeSeasons(
     };
   });
 
-  return { regions, pressureChanged: true };
+  const events = buildPressureEvents(world, nextEra, world.regions, regions);
+  return { regions, pressureChanged: true, events };
 }

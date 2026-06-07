@@ -17,7 +17,7 @@ export function advanceEra(world: World): { world: World; events: readonly Domai
   const eraStartPopulations = buildPopulationSnapshot(world);
 
   // Stage 1: Apply environmental pressure
-  const { regions } = applyPressure(world, nextEra);
+  const { regions, events: pressureEvents } = applyPressure(world, nextEra);
   let w: World = { ...world, regions };
 
   // Stage 3: Producer growth (stage 2 is implicit — suitability is recalculated from current conditions)
@@ -36,7 +36,7 @@ export function advanceEra(world: World): { world: World; events: readonly Domai
   w = resolveReproductionAndMortality(w, herbFulfillment, predFulfillment);
 
   // Stage 7: Migration
-  const { world: w7, migrations } = resolveMigration(
+  const { world: w7, migrations, events: migrationEvents } = resolveMigration(
     w,
     eraStartPopulations,
     herbFulfillment,
@@ -46,21 +46,29 @@ export function advanceEra(world: World): { world: World; events: readonly Domai
   w = w7;
 
   // Stage 8: Adaptation
-  const { world: w8 } = resolveAdaptation(w, herbFulfillment, predFulfillment, nextEra);
+  const { world: w8, events: adaptationEvents } = resolveAdaptation(w, herbFulfillment, predFulfillment, nextEra);
   w = w8;
 
   // Stage 9: Isolation tracking + speciation
-  const { world: w9 } = resolveIsolation(w, migrations, nextEra);
+  const { world: w9, events: isolationEvents } = resolveIsolation(w, migrations, nextEra);
   w = w9;
 
   // Stage 10: Extinction
-  const { world: w10 } = resolveExtinction(w, nextEra);
+  const { world: w10, events: extinctionEvents } = resolveExtinction(w, nextEra);
   w = w10;
 
   // Advance era counter
   const finalWorld: World = { ...w, era: nextEra };
 
-  return { world: finalWorld, events: [] };
+  const events: readonly DomainEvent[] = [
+    ...pressureEvents,
+    ...migrationEvents,
+    ...adaptationEvents,
+    ...isolationEvents,
+    ...extinctionEvents,
+  ];
+
+  return { world: finalWorld, events };
 }
 
 function buildPopulationSnapshot(world: World): Map<string, Map<string, number>> {

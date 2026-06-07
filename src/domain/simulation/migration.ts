@@ -1,4 +1,6 @@
-import type { World } from '@/domain/world/types';
+import type { RegionId, World } from '@/domain/world/types';
+import { eventId, regionId as makeRegionId } from '@/domain/world/types';
+import type { DomainEvent } from '@/domain/events/types';
 import { Ruleset } from '@/domain/ruleset/v1';
 import { habitatSuitability, foodDemandPerUnit, clamp } from './formulas';
 import { roundHalfUp } from './allocation';
@@ -25,7 +27,7 @@ export function resolveMigration(
   herbivoreFulfillment: FulfillmentMap,
   predatorFulfillment: FulfillmentMap,
   nextEra: number,
-): { world: World; migrations: MigrationsThisEra } {
+): { world: World; migrations: MigrationsThisEra; events: DomainEvent[] } {
   // Build pre-migration snapshot of current populations
   const preMigrationPops = buildPopSnapshot(world);
 
@@ -36,6 +38,8 @@ export function resolveMigration(
     sourceRegionId: string;
     destRegionId: string;
     amount: number;
+    popBefore: number;
+    destBefore: number;
   };
 
   const moves: MigrationMove[] = [];
@@ -140,12 +144,15 @@ export function resolveMigration(
       });
 
       const bestDest = qualifyingDests[0]!;
+      const destBefore = preMigrationPops.get(sp.id as string)?.get(bestDest.regionId) ?? 0;
 
       moves.push({
         speciesId: sp.id as string,
         sourceRegionId: rid,
         destRegionId: bestDest.regionId,
         amount: migratingAmount,
+        popBefore: sourcePop,
+        destBefore,
       });
     }
   }
@@ -196,9 +203,37 @@ export function resolveMigration(
     return { ...sp, populations: newPops, lastMigrationEra: newLastMigEras };
   });
 
+  // Build migration events
+  const events: DomainEvent[] = [];
+  for (const move of moves) {
+    const sp = world.species.find(s => (s.id as string) === move.speciesId);
+    if (!sp) continue;
+
+    const popAfter = move.popBefore - move.amount;
+    const destAfter = move.destBefore + move.amount;
+
+    events.push({
+      id: eventId(`${nextEra}:population_migrated:${move.speciesId}:${move.sourceRegionId}->${move.destRegionId}`),
+      type: 'population_migrated',
+      era: nextEra,
+      subjectIds: {
+        worldId: world.id,
+        regionIds: [makeRegionId(move.sourceRegionId), makeRegionId(move.destRegionId)] as readonly RegionId[],
+        speciesIds: [sp.id],
+      },
+      changes: {
+        [`population:${move.sourceRegionId}`]: { before: move.popBefore, after: popAfter },
+        [`population:${move.destRegionId}`]: { before: move.destBefore, after: destAfter },
+      },
+      causes: [{ type: 'habitat_mismatch', description: 'Population migrated seeking better conditions' }],
+      contributingEventIds: [],
+    });
+  }
+
   return {
     world: { ...world, species: updatedSpecies },
     migrations,
+    events,
   };
 }
 

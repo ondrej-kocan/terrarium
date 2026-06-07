@@ -1,5 +1,6 @@
 import type { Region, Species, Traits, World } from '@/domain/world/types';
-import { speciesId as makeSpeciesId } from '@/domain/world/types';
+import { speciesId as makeSpeciesId, regionId as makeRegionId, eventId } from '@/domain/world/types';
+import type { DomainEvent } from '@/domain/events/types';
 import { Ruleset } from '@/domain/ruleset/v1';
 import { habitatSuitability } from './formulas';
 import type { MigrationsThisEra } from './migration';
@@ -14,8 +15,9 @@ export function resolveIsolation(
 ): {
   world: World;
   speciations: Array<{ parentId: string; childId: string; regionId: string }>;
+  events: DomainEvent[];
 } {
-  const speciations: Array<{ parentId: string; childId: string; regionId: string }> = [];
+  const speciations: Array<{ parentId: string; childId: string; regionId: string; parentName: string; childName: string }> = [];
 
   // Process each species for isolation updates
   let updatedSpecies = world.species.map(sp => {
@@ -151,7 +153,7 @@ export function resolveIsolation(
     };
 
     newChildSpecies.push(childSpecies);
-    speciations.push({ parentId: sp.id as string, childId: childId as string, regionId: bid });
+    speciations.push({ parentId: sp.id as string, childId: childId as string, regionId: bid, parentName: sp.name, childName });
 
     // Remove isolated region from parent
     const newParentPops: Record<string, number> = { ...sp.populations as Record<string, number> };
@@ -171,9 +173,28 @@ export function resolveIsolation(
     };
   });
 
+  // Build speciation events
+  const events: DomainEvent[] = speciations.map(({ parentId, childId, regionId: rid, parentName, childName }) => {
+    const parentSp = world.species.find(s => (s.id as string) === parentId)!;
+    return {
+      id: eventId(`${nextEra}:species_speciated:${childId}`),
+      type: 'species_speciated' as const,
+      era: nextEra,
+      subjectIds: {
+        worldId: world.id,
+        regionIds: [makeRegionId(rid)],
+        speciesIds: [parentSp.id, makeSpeciesId(childId)],
+      },
+      changes: { newSpecies: { before: null, after: childId } },
+      causes: [{ type: 'isolation' as const, description: `${childName} speciated from ${parentName} after prolonged isolation` }],
+      contributingEventIds: [],
+    };
+  });
+
   return {
     world: { ...world, species: [...updatedSpecies, ...newChildSpecies] },
     speciations,
+    events,
   };
 }
 

@@ -1,7 +1,11 @@
 import { generate, WORLD_ARCHETYPES, PRESSURE_ARCHETYPES } from '@/domain/generation';
 import { habitatSuitability, producerCapacity } from '@/domain/simulation/formulas';
 import { advanceEra } from '@/domain/simulation/pipeline';
+import { handleRelocatePopulation } from '@/application/relocate-population';
 import type { GenesisConfig, Region, Species, Traits, World } from '@/domain/world/types';
+import { worldId as makeWorldId } from '@/domain/world/types';
+import type { DomainEvent } from '@/domain/events/types';
+import type { RelocatePopulationCommand } from '@/domain/commands/types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -40,6 +44,70 @@ function traitDelta(current: number, origin: number): string {
   return `${current} (${sign}${current - origin})`;
 }
 
+function describeEvent(event: DomainEvent, world: World): string {
+  const getSpeciesName = (sid: string) =>
+    world.species.find(s => (s.id as string) === sid)?.name ?? sid;
+  const getRegionName = (rid: string) =>
+    world.regions.find(r => (r.id as string) === rid)?.name ?? rid;
+
+  switch (event.type) {
+    case 'environment_changed': {
+      const regionId = event.subjectIds.regionIds[0];
+      const regionName = regionId ? getRegionName(regionId as string) : 'Unknown';
+      const pressureId = world.genesisConfig.environmentalPressureId;
+      return `Region ${regionName}: conditions changed (${pressureId})`;
+    }
+    case 'population_migrated': {
+      const speciesName = event.subjectIds.speciesIds[0]
+        ? getSpeciesName(event.subjectIds.speciesIds[0] as string)
+        : 'Unknown';
+      const fromId = event.subjectIds.regionIds[0];
+      const toId = event.subjectIds.regionIds[1];
+      const from = fromId ? getRegionName(fromId as string) : '?';
+      const to = toId ? getRegionName(toId as string) : '?';
+      return `${speciesName} migrated from ${from} to ${to}`;
+    }
+    case 'species_adapted': {
+      const speciesName = event.subjectIds.speciesIds[0]
+        ? getSpeciesName(event.subjectIds.speciesIds[0] as string)
+        : 'Unknown';
+      return `${speciesName} adapted traits`;
+    }
+    case 'species_speciated': {
+      const parentId = event.subjectIds.speciesIds[0];
+      const childId = event.subjectIds.speciesIds[1];
+      const parentName = parentId ? getSpeciesName(parentId as string) : 'Unknown';
+      const childName = childId ? getSpeciesName(childId as string) : 'Unknown';
+      return `${childName} speciated from ${parentName}`;
+    }
+    case 'species_extinct': {
+      const speciesName = event.subjectIds.speciesIds[0]
+        ? getSpeciesName(event.subjectIds.speciesIds[0] as string)
+        : 'Unknown';
+      return `${speciesName} went extinct`;
+    }
+    case 'population_relocated': {
+      const speciesName = event.subjectIds.speciesIds[0]
+        ? getSpeciesName(event.subjectIds.speciesIds[0] as string)
+        : 'Unknown';
+      const fromId = event.subjectIds.regionIds[0];
+      const toId = event.subjectIds.regionIds[1];
+      const from = fromId ? getRegionName(fromId as string) : '?';
+      const to = toId ? getRegionName(toId as string) : '?';
+      const cause = event.causes[0];
+      // Extract amount from cause description if possible, otherwise use changes
+      const fromKey = `population:${fromId as string}`;
+      const fromChange = event.changes[fromKey];
+      const amount = fromChange
+        ? (fromChange.before as number) - (fromChange.after as number)
+        : 0;
+      return `Player relocated ${amount} ${speciesName} from ${from} to ${to}`;
+    }
+    default:
+      return `Event: ${event.type}`;
+  }
+}
+
 // ── Era navigation controls ───────────────────────────────────────────────────
 
 function EraControls({
@@ -47,15 +115,17 @@ function EraControls({
   archetypeId,
   pressureId,
   era,
+  relocateParam,
 }: {
   seed: string;
   archetypeId: string;
   pressureId: string;
   era: number;
+  relocateParam?: string;
 }) {
   const base = `?seed=${encodeURIComponent(seed)}&archetype=${archetypeId}&pressure=${pressureId}`;
-  const prevUrl = era > 0 ? `${base}&eras=${era - 1}` : null;
-  const nextUrl = `${base}&eras=${era + 1}`;
+  const prevUrl = era > 0 ? `${base}&eras=${era - 1}${relocateParam ? `&relocate=${encodeURIComponent(relocateParam)}` : ''}` : null;
+  const nextUrl = `${base}&eras=${era + 1}${relocateParam ? `&relocate=${encodeURIComponent(relocateParam)}` : ''}`;
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '1rem 0' }}>
@@ -257,19 +327,151 @@ function SpeciesTable({ world }: { world: World }) {
   );
 }
 
-function WorldInspector({
+function EraEventLog({ events, world }: { events: DomainEvent[]; world: World }) {
+  if (events.length === 0) {
+    return <p style={{ color: '#888', fontSize: '0.9em' }}>No notable events this era.</p>;
+  }
+  return (
+    <ul style={{ fontSize: '0.9em', paddingLeft: '1.5rem' }}>
+      {events.map(e => (
+        <li key={e.id as string}>{describeEvent(e, world)}</li>
+      ))}
+    </ul>
+  );
+}
+
+function RelocationForm({
   world,
   seed,
   archetypeId,
   pressureId,
+  currentRelocateParam,
 }: {
   world: World;
   seed: string;
   archetypeId: string;
   pressureId: string;
+  currentRelocateParam?: string;
+}) {
+  // If intervention already used, show read-only info
+  if (world.interventionUsed) {
+    return (
+      <section style={{ marginTop: '1.5rem' }}>
+        <h3 style={{ fontSize: '1em' }}>Population Relocation</h3>
+        <p style={{ fontSize: '0.9em', color: '#888' }}>
+          Intervention already used this world.
+          {currentRelocateParam && (
+            <> (Applied: {currentRelocateParam})</>
+          )}
+        </p>
+      </section>
+    );
+  }
+
+  const extantSpecies = world.species.filter(
+    s => s.status === 'extant' && Object.values(s.populations as Record<string, number>).some(p => (p ?? 0) > 0),
+  );
+
+  if (extantSpecies.length === 0) {
+    return null;
+  }
+
+  const base = `?seed=${encodeURIComponent(seed)}&archetype=${archetypeId}&pressure=${pressureId}&eras=${world.era}`;
+
+  return (
+    <section style={{ marginTop: '1.5rem' }}>
+      <h3 style={{ fontSize: '1em' }}>Population Relocation (one-time intervention)</h3>
+      <form method="get" action="">
+        {/* Preserve existing URL params */}
+        <input type="hidden" name="seed" value={seed} />
+        <input type="hidden" name="archetype" value={archetypeId} />
+        <input type="hidden" name="pressure" value={pressureId} />
+        <input type="hidden" name="eras" value={world.era} />
+        <table>
+          <tbody>
+            <tr>
+              <td><label htmlFor="rel-species">Species</label></td>
+              <td>
+                <select id="rel-species" name="rel-species" style={{ minWidth: '12rem' }}>
+                  {extantSpecies.map(sp => (
+                    <option key={sp.id as string} value={sp.id as string}>{sp.name}</option>
+                  ))}
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td><label htmlFor="rel-from">From region</label></td>
+              <td>
+                <select id="rel-from" name="rel-from" style={{ minWidth: '12rem' }}>
+                  {world.regions.map(r => (
+                    <option key={r.id as string} value={r.id as string}>{r.name}</option>
+                  ))}
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td><label htmlFor="rel-to">To region</label></td>
+              <td>
+                <select id="rel-to" name="rel-to" style={{ minWidth: '12rem' }}>
+                  {world.regions.map(r => (
+                    <option key={r.id as string} value={r.id as string}>{r.name}</option>
+                  ))}
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td><label htmlFor="rel-amount">Amount</label></td>
+              <td>
+                <input
+                  id="rel-amount"
+                  name="rel-amount"
+                  type="number"
+                  min="1"
+                  defaultValue="1"
+                  style={{ width: '6rem' }}
+                />
+              </td>
+            </tr>
+            <tr>
+              <td />
+              <td>
+                <button
+                  type="submit"
+                  formAction={`${base}&relocate=SPECIES|FROM|TO|AMOUNT`}
+                >
+                  Relocate (submit form to apply)
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p style={{ fontSize: '0.8em', color: '#888' }}>
+          To relocate: build the URL manually with{' '}
+          <code>?relocate=SPECIES_ID|FROM_REGION_ID|TO_REGION_ID|AMOUNT</code>
+        </p>
+      </form>
+    </section>
+  );
+}
+
+function WorldInspector({
+  world,
+  seed,
+  archetypeId,
+  pressureId,
+  eraEvents,
+  relocateParam,
+}: {
+  world: World;
+  seed: string;
+  archetypeId: string;
+  pressureId: string;
+  eraEvents: Map<number, DomainEvent[]>;
+  relocateParam?: string;
 }) {
   const extant = world.species.filter(s => s.status === 'extant');
   const extinct = world.species.filter(s => s.status === 'extinct');
+  const currentEvents = eraEvents.get(world.era) ?? [];
 
   return (
     <article>
@@ -293,10 +495,23 @@ function WorldInspector({
         {extant.length} extant species · {world.regions.length} regions
       </p>
 
-      <EraControls seed={seed} archetypeId={archetypeId} pressureId={pressureId} era={world.era} />
+      <EraControls seed={seed} archetypeId={archetypeId} pressureId={pressureId} era={world.era} relocateParam={relocateParam} />
+
+      <h3 style={{ fontSize: '0.95em', marginBottom: '0.25rem' }}>Era {world.era} events</h3>
+      <EraEventLog events={currentEvents} world={world} />
+
       <RegionsTable world={world} />
       <SpeciesTable world={world} />
-      <EraControls seed={seed} archetypeId={archetypeId} pressureId={pressureId} era={world.era} />
+
+      <RelocationForm
+        world={world}
+        seed={seed}
+        archetypeId={archetypeId}
+        pressureId={pressureId}
+        currentRelocateParam={relocateParam}
+      />
+
+      <EraControls seed={seed} archetypeId={archetypeId} pressureId={pressureId} era={world.era} relocateParam={relocateParam} />
     </article>
   );
 }
@@ -305,6 +520,26 @@ function WorldInspector({
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
+function parseRelocateParam(
+  raw: string,
+  world: World,
+): RelocatePopulationCommand | null {
+  const parts = raw.split('|');
+  if (parts.length !== 4) return null;
+  const [speciesIdStr, fromRegionIdStr, toRegionIdStr, amountStr] = parts as [string, string, string, string];
+  const amount = parseInt(amountStr, 10);
+  if (!Number.isFinite(amount) || amount < 1) return null;
+
+  return {
+    type: 'RelocatePopulation',
+    worldId: world.id,
+    speciesId: speciesIdStr as ReturnType<typeof makeWorldId>,
+    fromRegionId: fromRegionIdStr as ReturnType<typeof makeWorldId>,
+    toRegionId: toRegionIdStr as ReturnType<typeof makeWorldId>,
+    amount,
+  } as unknown as RelocatePopulationCommand;
+}
+
 export default async function Home({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const seed = typeof params.seed === 'string' ? params.seed.trim() : '';
@@ -312,6 +547,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
   const pressureId = typeof params.pressure === 'string' ? params.pressure : '';
   const erasParam = typeof params.eras === 'string' ? parseInt(params.eras, 10) : 0;
   const targetEra = Number.isFinite(erasParam) ? Math.max(0, erasParam) : 0;
+  const relocateParam = typeof params.relocate === 'string' ? params.relocate : undefined;
 
   const current: Partial<GenesisConfig> = {
     seed: seed || undefined,
@@ -321,6 +557,7 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
 
   let world: World | null = null;
   let errorMessage: string | null = null;
+  const eraEvents: Map<number, DomainEvent[]> = new Map();
 
   const canGenerate = seed && WORLD_ARCHETYPES.has(archetypeId) && PRESSURE_ARCHETYPES.has(pressureId);
 
@@ -328,7 +565,22 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
     try {
       world = generate({ seed, worldArchetypeId: archetypeId, environmentalPressureId: pressureId });
       for (let era = 0; era < targetEra; era++) {
-        world = advanceEra(world).world;
+        const result = advanceEra(world);
+        world = result.world;
+        eraEvents.set(era + 1, [...result.events]);
+      }
+      // Apply relocation at current era if present and not yet used
+      if (relocateParam && world && !world.interventionUsed) {
+        const command = parseRelocateParam(relocateParam, world);
+        if (command) {
+          const relocResult = handleRelocatePopulation(command, world);
+          if (relocResult.success) {
+            world = relocResult.world;
+            // Add relocation events to current era's events
+            const currentEraEvents = eraEvents.get(world.era) ?? [];
+            eraEvents.set(world.era, [...currentEraEvents, ...relocResult.events]);
+          }
+        }
       }
     } catch (err) {
       errorMessage = err instanceof Error ? err.message : String(err);
@@ -350,6 +602,8 @@ export default async function Home({ searchParams }: { searchParams: SearchParam
           seed={seed}
           archetypeId={archetypeId}
           pressureId={pressureId}
+          eraEvents={eraEvents}
+          relocateParam={relocateParam}
         />
       )}
 
