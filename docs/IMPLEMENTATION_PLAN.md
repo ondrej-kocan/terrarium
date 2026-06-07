@@ -215,8 +215,8 @@ Before writing production code, confirm:
 - [x] Conceptual domain model, commands, events, and invariants are documented.
 - [x] Milestone sequence and exit criteria are documented.
 - [x] Formula-level simulation rules are resolved in `SIMULATION_RULES.md`.
-- [ ] Initial template values and compatibility matrices are authored.
-- [ ] A product decision is made for era duration.
+- [x] Initial template values and compatibility matrices are authored. See `docs/TEMPLATE_CATALOG.md`.
+- [x] A product decision is made for era duration. One era = one ecological generation (~10–30 years).
 - [x] Report significance thresholds are defined in `SIMULATION_RULES.md`.
 
 The unchecked items are the first implementation/design-spike work. They do not justify expanding MVP scope.
