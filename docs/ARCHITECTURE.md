@@ -121,15 +121,19 @@ Administrative development tools may replay commands or load fixtures, but they 
 
 ### Random Source
 
-All random choices use an injected seeded `RandomSource`. Direct ambient randomness is forbidden in generation and simulation.
+All random choices during **generation** use `SeededRandom` from `src/infrastructure/random`. The `derive(key)` method creates independent named streams so unrelated changes do not unnecessarily alter every result. Stream keys used during generation:
 
-Random streams should be derived by purpose so unrelated implementation changes do not unnecessarily alter every result. Example stream keys:
+- `generation:attempt:<n>:regions`
+- `generation:attempt:<n>:species`
+- `generation:attempt:<n>:naming`
 
-- `generation:regions`
-- `generation:species`
-- `generation:names`
-- `simulation:era:<n>:migration`
-- `simulation:era:<n>:adaptation`
+**Era simulation contains no random rolls.** All simulation outcomes are deterministic functions of the current world state and the ruleset. The reproducibility contract therefore reduces to:
+
+```text
+ruleset version + GenesisConfig + ordered command history
+```
+
+Any introduction of per-era randomness would break this guarantee and must not be added without explicit versioning.
 
 ### Reproducibility Contract
 
@@ -230,35 +234,49 @@ Snapshot-per-era plus command/event history is simpler than rebuilding every UI 
 
 A single transaction should persist the accepted command, resulting snapshot, and emitted events.
 
-## Proposed Repository Structure
+## Repository Structure
+
+Current layout (updated as milestones land):
 
 ```text
 src/
-  app/                         # Next.js routes and UI composition
-    genesis/
-    worlds/[worldId]/
-  application/                 # Use cases and transaction boundaries
+  app/                         # Next.js app router — world inspector page
+  application/                 # Command handlers (use-case layer)
     start-world.ts
-    advance-era.ts
-    relocate-population.ts
+    advance-era.ts             # (Milestone 3)
   domain/
-    genesis/
-    generation/
-      archetypes/
-      naming/
-      validation/
+    commands/                  # Command and result type definitions
+    events/                    # DomainEvent, EventType, CauseRecord
+    generation/                # World generation from GenesisConfig
+      archetypes/              # World, species, and pressure archetype data
+      naming/                  # Deterministic name generation
+      index.ts                 # generate() entry point + re-exports
+      types.ts                 # Template type definitions
+      validation.ts            # Generation-time suitability and food checks
+    ruleset/
+      v1.ts                    # All Ruleset knobs; increment version on changes
     simulation/
-      systems/
-      interventions/
+      formulas.ts              # habitatSuitability, foodDemand, capacity
+      allocation.ts            # Largest-remainder shared-quantity allocation
+      pipeline.ts              # advanceEra() — orchestrates all stages
+      pressure.ts              # Stage 1: environmental pressure application
+      producers.ts             # Stage 3: producer growth and competition
+      consumption.ts           # Stages 4–5: herbivore and predator consumption
+      reproduction.ts          # Stage 6: births and mortality
+      migration.ts             # Stage 7: migration
+      adaptation.ts            # Stage 8: species trait adaptation
+      isolation.ts             # Stage 9: isolation tracking and speciation
+      extinction.ts            # Stage 10: extinction marking
     world/
-    events/
-    reporting/
+      types.ts                 # World aggregate and all value-object types
+      invariants.ts            # checkWorldInvariants, assertWorldValid
   infrastructure/
-    persistence/
-    random/
+    random/                    # SeededRandom (Mulberry32 PRNG + derive)
   test/
     fixtures/
-    scenarios/
+      world.ts                 # buildValidWorld helper
+    scenarios/                 # Named scenario fixtures (Milestone 3+)
+    determinism.test.ts        # Determinism contract tests
 
 docs/
   ARCHITECTURE.md
@@ -266,9 +284,10 @@ docs/
   IMPLEMENTATION_PLAN.md
   MVP_SCOPE.md
   SIMULATION_RULES.md
+  TEMPLATE_CATALOG.md
 ```
 
-Dependencies point inward: infrastructure and UI may depend on application/domain APIs; the domain must not import Next.js, React, Drizzle, SQLite, or AI-provider code.
+Dependencies point inward: `app/` and `application/` may import from `domain/` and `infrastructure/`; `domain/` must not import Next.js, React, Drizzle, SQLite, or AI-provider code. Generation may import `infrastructure/random`; simulation must not.
 
 ## Testing Strategy
 
