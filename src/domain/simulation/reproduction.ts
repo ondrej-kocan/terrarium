@@ -43,9 +43,13 @@ export function resolveReproductionAndMortality(
         const birthRate = sp.trophicRole === 'herbivore'
           ? Ruleset.HERBIVORE_BIRTH_RATE
           : Ruleset.PREDATOR_BIRTH_RATE;
-        const births = roundHalfUp(
+        const rawBirths = roundHalfUp(
           population * birthRate / 100 * suitability / 100 * foodFulfillment / 100,
         );
+        // At very small populations integer rounding can suppress all births even
+        // in decent conditions. Guarantee at least 1 birth when the group is viable
+        // and conditions are at least moderate (≥50% suitability and food).
+        const births = rawBirths === 0 && suitability >= 50 && foodFulfillment >= 50 ? 1 : rawBirths;
         popAfterBirths = population + births;
       }
 

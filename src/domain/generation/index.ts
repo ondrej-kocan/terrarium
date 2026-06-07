@@ -176,7 +176,7 @@ function tryGenerate(
       const suit = habitatSuitability(affinityFrom(tmpl), traits, conditions[j]!);
       if (j === regionIndex) {
         populations[rj] = Ruleset.STARTING_PRODUCER_POPULATION;
-      } else if (suit >= 30) {
+      } else if (suit >= Ruleset.STARTING_FOOD_FULFILLMENT) {
         populations[rj] = Math.round(Ruleset.STARTING_PRODUCER_POPULATION * suit / 100);
       }
     }
