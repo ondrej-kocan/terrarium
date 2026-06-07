@@ -15,12 +15,13 @@ The player is a naturalist, not a god. The simulation owns the world, and every 
 
 ## Current Status
 
-**Milestone 2 complete.** Template catalog and initial generation are implemented. A world inspector is available at the local dev URL — enter any seed, pick an archetype and pressure, and inspect the generated regions and species.
+**Milestone 3 complete.** The full era simulation pipeline is implemented — generated worlds now advance through deterministic eras with producer growth, consumption, predation, reproduction, mortality, migration, adaptation, isolation tracking, speciation, and extinction.
 
 - Milestone 0 — Simulation rules and formulas: **done**
 - Milestone 1 — Domain foundations and determinism: **done**
 - Milestone 2 — Template catalog and initial generation: **done**
-- Milestone 3 — Era simulation vertical slice: next
+- Milestone 3 — Era simulation vertical slice: **done**
+- Milestone 4 — Intervention and reports: next
 
 The MVP is intentionally constrained to three generated regions, exactly five archetype-generated starting species, one persistent environmental pressure, and one intervention type. Generation and simulation are deterministic for a given seed and command history.
 
