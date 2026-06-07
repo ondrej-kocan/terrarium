@@ -213,8 +213,8 @@ At each milestone, ask:
 | M0 — Simulation rules | Done |
 | M1 — Domain foundations | Done |
 | M2 — Template catalog and initial generation | Done |
-| M3 — Era simulation vertical slice | Next |
-| M4 — Intervention and reports | Planned |
+| M3 — Era simulation vertical slice | Done |
+| M4 — Intervention and reports | Next |
 | M5 — Playable in-memory web slice | Planned |
 
 ## Implementation Readiness Checklist
