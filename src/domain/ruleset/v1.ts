@@ -1,7 +1,7 @@
-// All balancing knobs for ruleset version 1.2.0.
+// All balancing knobs for ruleset version 1.4.0.
 // Every named constant in SIMULATION_RULES.md lives here.
 // Change a value → increment RULESET_VERSION → old saved worlds become incompatible.
-export const RULESET_VERSION = '1.3.0' as const;
+export const RULESET_VERSION = '1.4.0' as const;
 
 export const Ruleset = {
   version: RULESET_VERSION,
@@ -51,20 +51,22 @@ export const Ruleset = {
 
   // ── Speciation ───────────────────────────────────────────────────────────
   SPECIATION_ISOLATION_ERAS: 4,
-  SPECIATION_DIVERGENCE: 4,
-  SPECIATION_MIN_POPULATION: 20,
-  SPECIATION_MIN_PARENT_POPULATION: 10,
-  ISOLATION_MIN_TRACKED_POPULATION: 10,
+  SPECIATION_DIVERGENCE: 1,
+  SPECIATION_MIN_POPULATION: 10,
+  SPECIATION_MIN_PARENT_POPULATION: 5,
+  ISOLATION_MIN_TRACKED_POPULATION: 5,
 
   // ── Extinction ───────────────────────────────────────────────────────────
   MINIMUM_VIABLE_POPULATION: 2,
   EXTINCTION_CAUSE_WINDOW: 3,
 
   // ── Environmental pressures ───────────────────────────────────────────────
-  DROUGHT_STEP_INTERVAL: 2,
+  DROUGHT_STEP_INTERVAL: 3,
   DROUGHT_FERTILITY_THRESHOLD: 3,
-  COOLING_STEP_INTERVAL: 2,
+  DROUGHT_MOISTURE_FLOOR: 1,
+  COOLING_STEP_INTERVAL: 3,
   COOLING_FERTILITY_THRESHOLD: 2,
+  COOLING_TEMPERATURE_FLOOR: 1,
   EXTREME_TEMPERATURE_SHIFT: 2,
   EXTREME_MOISTURE_SHIFT: 1,
 

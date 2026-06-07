@@ -99,7 +99,7 @@ const HIGHLAND_VALLEY: WorldArchetypeTemplate = {
     {
       role: 'western-ridge',
       displayName: 'Western Ridge',
-      temperature: { min: 1, max: 4 },
+      temperature: { min: 1, max: 3 },
       moisture: { min: 2, max: 6 },
       fertility: { min: 3, max: 5 },
       shelter: { min: 1, max: 3 },
@@ -115,7 +115,7 @@ const HIGHLAND_VALLEY: WorldArchetypeTemplate = {
     {
       role: 'eastern-ridge',
       displayName: 'Eastern Ridge',
-      temperature: { min: 1, max: 4 },
+      temperature: { min: 1, max: 3 },
       moisture: { min: 2, max: 6 },
       fertility: { min: 3, max: 5 },
       shelter: { min: 1, max: 3 },
