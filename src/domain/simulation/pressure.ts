@@ -75,9 +75,12 @@ function applyIncreasingDrought(
   }
 
   const regions = world.regions.map(region => {
-    const newMoisture = clamp(0, 10, region.conditions.moisture - 1);
+    const oldMoisture = region.conditions.moisture;
+    const newMoisture = oldMoisture <= Ruleset.DROUGHT_MOISTURE_FLOOR
+      ? oldMoisture
+      : Math.max(Ruleset.DROUGHT_MOISTURE_FLOOR, oldMoisture - 1);
     let newFertility = region.conditions.fertility;
-    if (newMoisture <= Ruleset.DROUGHT_FERTILITY_THRESHOLD) {
+    if (newMoisture < oldMoisture && newMoisture <= Ruleset.DROUGHT_FERTILITY_THRESHOLD) {
       newFertility = clamp(0, 10, newFertility - 1);
     }
     return {
@@ -104,9 +107,12 @@ function applyCoolingClimate(
   }
 
   const regions = world.regions.map(region => {
-    const newTemperature = clamp(0, 10, region.conditions.temperature - 1);
+    const oldTemperature = region.conditions.temperature;
+    const newTemperature = oldTemperature <= Ruleset.COOLING_TEMPERATURE_FLOOR
+      ? oldTemperature
+      : Math.max(Ruleset.COOLING_TEMPERATURE_FLOOR, oldTemperature - 1);
     let newFertility = region.conditions.fertility;
-    if (newTemperature <= Ruleset.COOLING_FERTILITY_THRESHOLD) {
+    if (newTemperature < oldTemperature && newTemperature <= Ruleset.COOLING_FERTILITY_THRESHOLD) {
       newFertility = clamp(0, 10, newFertility - 1);
     }
     return {
