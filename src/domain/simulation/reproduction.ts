@@ -47,9 +47,9 @@ export function resolveReproductionAndMortality(
           population * birthRate / 100 * suitability / 100 * foodFulfillment / 100,
         );
         // At very small populations integer rounding can suppress all births even
-        // in decent conditions. Guarantee at least 1 birth when the group is viable
-        // and conditions are at least moderate (≥50% suitability and food).
-        const births = rawBirths === 0 && suitability >= 50 && foodFulfillment >= 50 ? 1 : rawBirths;
+        // in good conditions. Guarantee at least 1 birth only when conditions meet
+        // the minimum viable threshold — food-stressed populations should decline.
+        const births = rawBirths === 0 && suitability >= 50 && foodFulfillment >= Ruleset.STARTING_FOOD_FULFILLMENT ? 1 : rawBirths;
         popAfterBirths = population + births;
       }
 
