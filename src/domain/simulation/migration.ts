@@ -32,7 +32,6 @@ export function resolveMigration(
   const preMigrationPops = buildPopSnapshot(world);
 
   // Collect all migration moves to apply together
-  // Move: { speciesId, sourceRegionId, destRegionId, amount }
   type MigrationMove = {
     speciesId: string;
     sourceRegionId: string;
@@ -40,6 +39,7 @@ export function resolveMigration(
     amount: number;
     popBefore: number;
     destBefore: number;
+    trigger: 'habitat' | 'food' | 'decline';
   };
 
   const moves: MigrationMove[] = [];
@@ -78,12 +78,13 @@ export function resolveMigration(
         ? ((eraStartPop - sourcePop) / eraStartPop) * 100
         : 0;
 
-      const isTriggerMet =
-        sourceSuitability < Ruleset.MIGRATION_TRIGGER
-        || sourceFoodFulfillment < Ruleset.MIGRATION_TRIGGER
-        || populationDeclinePct >= Ruleset.POPULATION_DECLINE_TRIGGER;
+      const habitatTriggered = sourceSuitability < Ruleset.MIGRATION_TRIGGER;
+      const foodTriggered = sourceFoodFulfillment < Ruleset.MIGRATION_TRIGGER;
+      const declineTriggered = populationDeclinePct >= Ruleset.POPULATION_DECLINE_TRIGGER;
 
-      if (!isTriggerMet) continue;
+      if (!habitatTriggered && !foodTriggered && !declineTriggered) continue;
+
+      const trigger: MigrationMove['trigger'] = habitatTriggered ? 'habitat' : foodTriggered ? 'food' : 'decline';
 
       // Compute origin score
       const originFoodProspect = computeFoodProspect(
@@ -153,6 +154,7 @@ export function resolveMigration(
         amount: migratingAmount,
         popBefore: sourcePop,
         destBefore,
+        trigger,
       });
     }
   }
@@ -225,7 +227,14 @@ export function resolveMigration(
         [`population:${move.sourceRegionId}`]: { before: move.popBefore, after: popAfter },
         [`population:${move.destRegionId}`]: { before: move.destBefore, after: destAfter },
       },
-      causes: [{ type: 'habitat_mismatch', description: 'Population migrated seeking better conditions' }],
+      causes: [{
+        type: 'habitat_mismatch',
+        description: move.trigger === 'habitat'
+          ? `poor habitat in ${world.regions.find(r => (r.id as string) === move.sourceRegionId)?.name ?? move.sourceRegionId}`
+          : move.trigger === 'food'
+            ? `food shortage in ${world.regions.find(r => (r.id as string) === move.sourceRegionId)?.name ?? move.sourceRegionId}`
+            : `population crash in ${world.regions.find(r => (r.id as string) === move.sourceRegionId)?.name ?? move.sourceRegionId}`,
+      }],
       contributingEventIds: [],
     });
   }
